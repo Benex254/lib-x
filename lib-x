@@ -1,0 +1,346 @@
+#!/usr/bin/env bash
+#A script written by BeneX-254 in September 4, 2024 under GNU GENERAL PUBLIC LICENSE
+
+fzf_header='
+██╗░░░░░██╗██████╗░░░░░░░██╗░░██╗
+██║░░░░░██║██╔══██╗░░░░░░╚██╗██╔╝
+██║░░░░░██║██████╦╝█████╗░╚███╔╝░
+██║░░░░░██║██╔══██╗╚════╝░██╔██╗░
+███████╗██║██████╦╝░░░░░░██╔╝╚██╗
+╚══════╝╚═╝╚═════╝░░░░░░░╚═╝░░╚═╝
+'
+CLI_NAME="${0##*/}"
+CLI_VERSION="0.1.0"
+use_external_menu=false
+load_config() {
+
+  CONFIG_DIR="$HOME/.config/$CLI_NAME"
+  READING_LIST_DB="$CONFIG_DIR/reading_list"
+  COMPLETED_LIST_DB="$CONFIG_DIR/completed_list"
+  [ -d "$CONFIG_DIR" ] || mkdir -p "$CONFIG_DIR"
+
+  FZF_DEFAULT_OPTS='
+    --color=fg:#d0d0d0,fg+:#d0d0d0,bg:#121212,bg+:#262626
+    --color=hl:#5f87af,hl+:#5fd7ff,info:#afaf87,marker:#87ff00
+    --color=prompt:#d7005f,spinner:#af5fff,pointer:#af5fff,header:#87afaf
+    --color=border:#262626,label:#aeaeae,query:#d9d9d9
+    --border="rounded" --border-label="" --preview-window="border-rounded" --prompt="> "
+    --marker=">" --pointer="◆" --separator="─" --scrollbar="│"
+  '
+  export FZF_DEFAULT_OPTS
+
+}
+
+usage() {
+  printf "
+  Usage: %s [options] 
+  Most of the options are directly passed to calibredb
+
+  Options:
+    -s, --search
+      search for a book based on calibredb search syntax
+    -S, --sort-by 
+      sort the books on a specified field
+    -h, --help
+      Show this help message and exit
+
+    Note: 
+      All arguments can be specified in the config file as well.
+      If an argument is specified in both the config file and the command line, the command line argument will be used.
+
+    Some example usages:
+     $CLI_NAME --search tag:chess
+     $CLI_NAME --sort-by size 
+
+" "$CLI_NAME"
+}
+init_pretty_print() {
+  if [ -t 1 ] && [ "$PRETTY_PRINT" = "y" ] || true; then
+    # Check if stdout is a terminal
+    RED=$(tput setaf 1)
+    GREEN=$(tput setaf 2)
+    YELLOW=$(tput setaf 3)
+    BLUE=$(tput setaf 4)
+    MAGENTA=$(tput setaf 5)
+    CYAN=$(tput setaf 6)
+    WHITE=$(tput setaf 7)
+    BOLD=$(tput bold)
+    BLACK=$(tput setaf 0)
+    RESET=$(tput sgr0)
+  fi
+}
+fzf-preview() {
+  if [[ $# -ne 1 ]]; then
+    >&2 echo "usage: $0 FILENAME"
+    exit 1
+  fi
+
+  file=${1/#\~\//$HOME/}
+  type=$(file --dereference --mime -- "$file")
+
+  if [[ ! $type =~ image/ ]]; then
+    if [[ $type =~ =binary ]]; then
+      file "$1"
+      exit
+    fi
+
+    # Sometimes bat is installed as batcat.
+    if command -v batcat >/dev/null; then
+      batname="batcat"
+    elif command -v bat >/dev/null; then
+      batname="bat"
+    else
+      cat "$1"
+      exit
+    fi
+
+    ${batname} --style="${BAT_STYLE:-numbers}" --color=always --pager=never -- "$file"
+    exit
+  fi
+
+  dim=${FZF_PREVIEW_COLUMNS}x${FZF_PREVIEW_LINES}
+  if [[ $dim = x ]]; then
+    dim=$(stty size </dev/tty | awk '{print $2 "x" $1}')
+  elif ! [[ $KITTY_WINDOW_ID ]] && ((FZF_PREVIEW_TOP + FZF_PREVIEW_LINES == $(stty size </dev/tty | awk '{print $1}'))); then
+    # Avoid scrolling issue when the Sixel image touches the bottom of the screen
+    # * https://github.com/junegunn/fzf/issues/2544
+    dim=${FZF_PREVIEW_COLUMNS}x$((FZF_PREVIEW_LINES - 1))
+  fi
+
+  # 1. Use kitty icat on kitty terminal
+  if [[ $KITTY_WINDOW_ID ]]; then
+    # 1. 'memory' is the fastest option but if you want the image to be scrollable,
+    #    you have to use 'stream'.
+    #
+    # 2. The last line of the output is the ANSI reset code without newline.
+    #    This confuses fzf and makes it render scroll offset indicator.
+    #    So we remove the last line and append the reset code to its previous line.
+    kitty icat --clear --transfer-mode=memory --unicode-placeholder --stdin=no --place="$dim@0x0" "$file" | sed '$d' | sed $'$s/$/\e[m/'
+
+    # 2. Use chafa with Sixel output
+  elif command -v chafa >/dev/null; then
+    chafa -f sixel -s "$dim" "$file"
+    # Add a new line character so that fzf can display multiple images in the preview window
+    echo
+
+    # 3. If chafa is not found but imgcat is available, use it on iTerm2
+  elif command -v imgcat >/dev/null; then
+    # NOTE: We should use https://iterm2.com/utilities/it2check to check if the
+    # user is running iTerm2. But for the sake of simplicity, we just assume
+    # that's the case here.
+    imgcat -W "${dim%%x*}" -H "${dim##*x}" "$file"
+
+    # 4. Cannot find any suitable method to preview the image
+  else
+    file "$file"
+  fi
+}
+confirm() {
+  if command -v "gum" &>/dev/null; then
+    gum confirm --default "$1"
+  else
+    # TODO: Write alternative
+    command ...
+  fi
+}
+launcher() {
+  fzf \
+    --info=hidden \
+    --layout=reverse \
+    --height=100% \
+    --prompt="Select Action: " \
+    --header-first --header="$fzf_header" \
+    --exact --cycle
+
+}
+launcher_with_preview() {
+  fzf \
+    --info=hidden \
+    --layout=reverse \
+    --height=100% \
+    --prompt="Select Book: " \
+    --header-first --header="$fzf_header" \
+    --preview-window=left,35% --bind=right:accept \
+    --expect=shift-left,shift-right --tabstop=1 \
+    --cycle --exact \
+    --ansi --preview="\
+      if ! [ -z "{}" ] && ! [ {} = \"Exit\" ] && ! [ {} = \"Main Menu\" ];then\
+        CALIBRE_DATA=\"\$(calibredb list --for-machine --fields all)\";\
+        book=\$(echo \$CALIBRE_DATA |jq -r 'map(select(.title == \"'{}'\")) | .[0]');\
+        book_title=\$(echo  \$book|jq -r '.title');\
+        book_authors=\$(echo  \$book|jq -r '.authors');\
+        book_tags=\$(echo  \$book|jq -r '.tags[]');\
+        book_cover=\$(echo  \$book|jq -r '.cover');\
+        book_comments=\$(echo  \$book|jq -r '.comments');\
+        book_langs=\$(echo  \$book|jq -r '.languages[]');\
+        \
+        init_pretty_print;\
+        fzf-preview  \"\$book_cover\";
+        echo \${MAGENTA}\${BOLD}Title:\${RESET} \$book_title;\
+        echo \${MAGENTA}\${BOLD}Authors:\${RESET} \$book_authors;\
+        echo -n \${MAGENTA}\${BOLD}Comments:\${RESET};\
+        echo  \$book_comments|glow;\
+        echo \${MAGENTA}\${BOLD}Tags:\${RESET} \$book_tags;\
+        echo \${MAGENTA}\${BOLD}Languages:\${RESET} \$book_langs;\
+      else\
+        echo Loading;\
+      fi;\
+      " | tr -d "\n"
+}
+main() {
+  load_config
+
+  # ---- main menu ----
+  action=$(printf "Reading List\nAll\nExit" | launcher)
+  case "$action" in
+  "Reading List")
+    titles="$(cat "$READING_LIST_DB")"
+    ;;
+  "All")
+    titles="$(echo "$CALIBRE_DATA" | jq -r '.[].title')"
+    ;;
+  "Exit")
+    exit 0
+    ;;
+  *)
+    echo invalid action
+    main
+    ;;
+  esac
+  clear
+
+  # ---- select book ----
+  SHELL="bash"
+  export SHELL
+  export -f fzf-preview init_pretty_print
+  title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher_with_preview)
+  [ "$title" = "Exit" ] && exit 0
+  [ "$title" = "Main Menu" ] && main
+  clear
+
+  # ---- book actions ----
+  action=$(
+    printf "Read\nAdd To Reading List\nAdd To Completed\nRemove From Reading List\nRemove From Completed\nMain Menu\nExit" | launcher
+  )
+  case "$action" in
+  "Read")
+    book=$(echo "$CALIBRE_DATA" | jq "map(select(.title == \"$title\")) | .[0]")
+    book_path="$(echo "$book" | jq -r '.formats[0]')"
+    open "$book_path" &
+    disown
+    ;;
+  "Add To Reading List")
+    if grep "^${title}\$" -q <"$READING_LIST_DB"; then
+      echo Already added
+      sleep 1
+    else
+      echo Adding to reading list...
+      echo "$title" >>"$READING_LIST_DB"
+    fi
+    ;;
+  "Add To Completed")
+    if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
+      echo Already added
+      sleep 1
+    else
+      echo Adding to completed list...
+      echo "$title" >>"$COMPLETED_LIST_DB"
+    fi
+    ;;
+  "Remove From Reading List")
+    if grep "^$title\$" -q <"$READING_LIST_DB"; then
+      if confirm "Are you sure you want to remove '$title' from reading list?"; then
+        echo removing from reading list...
+        sed -i -E "s/${title}//g" "$READING_LIST_DB"
+      fi
+    else
+      echo "$title" is not in your reading list
+    fi
+    ;;
+  "Remove From Completed")
+    if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
+      if confirm "Are you sure you want to remove '$title' from  completed list?"; then
+        echo removing from reading list...
+        sed -i -E "s/${title}//g" "$READING_LIST_DB"
+      fi
+    else
+      echo "$title" is not in your completed list
+      sleep 1
+    fi
+    ;;
+  "Exit")
+    exit 0
+    ;;
+  "Main Menu")
+    main
+    ;;
+
+  *)
+    echo invalid action
+    sleep 1
+    ;;
+  esac
+  clear
+  main
+}
+
+# ---- cli ----
+case "$1" in
+-h | --help)
+  usage
+  exit 0
+  ;;
+-v | --version)
+  echo "$CLI_VERSION"
+  exit 0
+  ;;
+-s | --search)
+  [ -n "$2" ] || exit 1
+  CALIBRE_DATA="$(calibredb list --for-machine --fields all --search "$2")"
+  ;;
+-S | --sort-by)
+  [ -n "$2" ] || exit 1
+  CALIBRE_DATA="$(calibredb list --for-machine --fields all --sort-by "$2")"
+  ;;
+completions)
+  [ -n "$2" ] || exit 1
+  case "$2" in
+  -f | --fish)
+    # TODO: write fish completions
+    echo "\
+set -l sort_by_commands author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid
+complete -c $CLI_NAME -f 
+complete -c $CLI_NAME -n 'not __fish_seen_subcommand_from completions  && not __fish_contains_opt search s S && not __fish_contains_opt sort-by S' -f -a \"completions\" 
+complete -c $CLI_NAME -n \"__fish_contains_opt sort-by S search s && not __fish_seen_subcommand_from completions && not __fish_seen_subcommand_from \$sort_by_commands\"  -a 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
+complete -c $CLI_NAME -n \"__fish_seen_subcommand_from completions\"  -s z -l zsh -d 'print zsh completions'
+complete -c $CLI_NAME -n \"__fish_seen_subcommand_from completions\"  -s b -l bash -d 'print bash completions'
+complete -c $CLI_NAME -n \"__fish_seen_subcommand_from completions\"  -s f -l fish -d 'print fish completions'
+complete -c $CLI_NAME -n 'not __fish_seen_subcommand_from completions' -s S -l sort-by -d 'Sort the books by a field'
+complete -c $CLI_NAME -n 'not __fish_seen_subcommand_from completions' -s s -l search -d 'search for a book'
+complete -c $CLI_NAME -s h -l help -d 'Print a short help text and exit'
+complete -c $CLI_NAME -n 'not __fish_seen_subcommand_from completions' -l version -s v -d 'Print a short version string and exit'
+    "
+    ;;
+  -b | --bash)
+    # TODO: write bash completions
+    command ...
+    ;;
+  -z | --zsh)
+    # TODO: write zsh completions
+    command ...
+    ;;
+  -h | --help)
+    # TODO: write help message
+    echo generate commandline completions
+    ;;
+  *)
+    exit 1
+    ;;
+  esac
+  exit 0
+  ;;
+*)
+  CALIBRE_DATA="$(calibredb list --for-machine --fields all)"
+  ;;
+esac
+main
