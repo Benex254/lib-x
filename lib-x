@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #A script written by BeneX-254 in September 4, 2024 under GNU GENERAL PUBLIC LICENSE
 
+# TODO: come up with a better name
 fzf_header='
 ██╗░░░░░██╗██████╗░░░░░░░██╗░░██╗
 ██║░░░░░██║██╔══██╗░░░░░░╚██╗██╔╝
@@ -11,8 +12,10 @@ fzf_header='
 '
 CLI_NAME="${0##*/}"
 CLI_VERSION="0.1.0"
+CLI_AUTHOR="BeneX-254"
 use_external_menu=false
 load_config() {
+  # TODO: Make lib-x more configurable
 
   CONFIG_DIR="$HOME/.config/$CLI_NAME"
   READING_LIST_DB="$CONFIG_DIR/reading_list"
@@ -31,29 +34,6 @@ load_config() {
 
 }
 
-usage() {
-  printf "
-  Usage: %s [options] 
-  Most of the options are directly passed to calibredb
-
-  Options:
-    -s, --search
-      search for a book based on calibredb search syntax
-    -S, --sort-by 
-      sort the books on a specified field
-    -h, --help
-      Show this help message and exit
-
-    Note: 
-      All arguments can be specified in the config file as well.
-      If an argument is specified in both the config file and the command line, the command line argument will be used.
-
-    Some example usages:
-     $CLI_NAME --search tag:chess
-     $CLI_NAME --sort-by size 
-
-" "$CLI_NAME"
-}
 init_pretty_print() {
   if [ -t 1 ] && [ "$PRETTY_PRINT" = "y" ] || true; then
     # Check if stdout is a terminal
@@ -68,6 +48,7 @@ init_pretty_print() {
     BLACK=$(tput setaf 0)
     RESET=$(tput sgr0)
   fi
+
 }
 fzf-preview() {
   if [[ $# -ne 1 ]]; then
@@ -190,15 +171,72 @@ launcher_with_preview() {
 main() {
   load_config
 
+  categories=$(calibredb list_categories --csv | tail -n +2 | cut -d , -f 1 | uniq)
+  # calibredb list_categories --csv | grep "^$1" | cut -d , -f 2
   # ---- main menu ----
-  action=$(printf "Reading List\nAll\nExit" | launcher)
+  action=$(printf "Reading List\nAll\nRandom\n%s\nExit" "$categories" | launcher)
   case "$action" in
+  # ---- user lists ----
+  # TODO: complete lists
   "Reading List")
     titles="$(cat "$READING_LIST_DB")"
+    ;;
+  "Dropped")
+    titles="$(cat "$COMPLETED_LIST_DB")"
+    ;;
+  "Paused")
+    titles="$(cat "$COMPLETED_LIST_DB")"
+    ;;
+  "Completed")
+    titles="$(cat "$COMPLETED_LIST_DB")"
+    ;;
+  "Random")
+    titles="$(echo "$CALIBRE_DATA" | jq -r '.[].title' | shuf -n 30)"
+    ;;
+  "Re-reading")
+    titles="$(cat "$COMPLETED_LIST_DB")"
+    ;;
+  "Planing")
+    titles="$(cat "$COMPLETED_LIST_DB")"
     ;;
   "All")
     titles="$(echo "$CALIBRE_DATA" | jq -r '.[].title')"
     ;;
+
+  # ---- calibre search ----
+  "formats")
+    series=$(calibredb list_categories --csv | grep "^formats" | cut -d , -f 2 | launcher | tr -d '"')
+    titles=$(calibredb list --search "format:$series" --for-machine --fields=title | jq '.[].title' -r)
+    ;;
+  "series")
+    series=$(calibredb list_categories --csv | grep "^series" | cut -d , -f 2 | launcher | tr -d '"')
+    titles=$(calibredb list --search "series:$series" --for-machine --fields=title | jq '.[].title' -r)
+    ;;
+  "languages")
+    language=$(calibredb list_categories --csv | grep "^languages" | cut -d , -f 2 | launcher | tr -d '"')
+    titles=$(calibredb list --search "language:$language" --for-machine --fields=title | jq '.[].title' -r)
+    ;;
+  "tags")
+    tag=$(calibredb list_categories --csv | grep "^tags" | cut -d , -f 2 | launcher | tr -d '"')
+    titles=$(calibredb list --search "tag:$tag" --for-machine --fields=title | jq '.[].title' -r)
+    ;;
+  "rating")
+    rating=$(calibredb list_categories --csv | grep "^rating" | cut -d , -f 2 | launcher | tr -d '"')
+    titles=$(calibredb list --search "rating:$rating" --for-machine --fields=title | jq '.[].title' -r)
+    ;;
+  "publisher")
+    publisher=$(calibredb list_categories --csv | grep "^publisher" | cut -d , -f 2 | launcher | tr -d '"')
+    titles=$(calibredb list --search "publisher:$publisher" --for-machine --fields=title | jq '.[].title' -r)
+    ;;
+  "identifiers")
+    identifier=$(calibredb list_categories --csv | grep "^identifiers" | cut -d , -f 2 | launcher | tr -d '"')
+    titles=$(calibredb list --search "identifier:$identifier" --for-machine --fields=title | jq '.[].title' -r)
+    ;;
+  "authors")
+    series=$(calibredb list_categories --csv | grep "^authors" | cut -d , -f 2 | launcher | tr -d '"')
+    titles=$(calibredb list --search "author:$series" --for-machine --fields=title | jq '.[].title' -r)
+    ;;
+  # ---- others ----
   "Exit")
     exit 0
     ;;
@@ -209,89 +247,116 @@ main() {
   esac
   clear
 
-  # ---- select book ----
-  SHELL="bash"
-  export SHELL
-  export -f fzf-preview init_pretty_print
-  title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher_with_preview)
-  [ "$title" = "Exit" ] && exit 0
-  [ "$title" = "Main Menu" ] && main
-  clear
+  # book selection loop
+  while true; do
+    # ---- select book ----
+    SHELL="bash"
+    export SHELL
+    export -f fzf-preview init_pretty_print
+    title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher_with_preview)
+    [ "$title" = "Exit" ] && exit 0
+    [ "$title" = "Main Menu" ] && break
+    clear
 
-  # ---- book actions ----
-  action=$(
-    printf "Read\nAdd To Reading List\nAdd To Completed\nRemove From Reading List\nRemove From Completed\nMain Menu\nExit" | launcher
-  )
-  case "$action" in
-  "Read")
-    book=$(echo "$CALIBRE_DATA" | jq "map(select(.title == \"$title\")) | .[0]")
-    book_path="$(echo "$book" | jq -r '.formats[0]')"
-    open "$book_path" &
-    disown
-    ;;
-  "Add To Reading List")
-    if grep "^${title}\$" -q <"$READING_LIST_DB"; then
-      echo Already added
-      sleep 1
-    else
-      echo Adding to reading list...
-      echo "$title" >>"$READING_LIST_DB"
-    fi
-    ;;
-  "Add To Completed")
-    if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
-      echo Already added
-      sleep 1
-    else
-      echo Adding to completed list...
-      echo "$title" >>"$COMPLETED_LIST_DB"
-    fi
-    ;;
-  "Remove From Reading List")
-    if grep "^$title\$" -q <"$READING_LIST_DB"; then
-      if confirm "Are you sure you want to remove '$title' from reading list?"; then
-        echo removing from reading list...
-        sed -i -E "s/${title}//g" "$READING_LIST_DB"
+    # ---- book actions ----
+    action=$(
+      printf "Read\nAdd To Reading List\nAdd To Completed\nRemove From Reading List\nRemove From Completed\nMain Menu\nExit" | launcher
+    )
+    case "$action" in
+    "Read")
+      book=$(echo "$CALIBRE_DATA" | jq "map(select(.title == \"$title\")) | .[0]")
+      book_path="$(echo "$book" | jq -r '.formats[0]')"
+      open "$book_path" &
+      disown
+      ;;
+    "Add To Reading List")
+      if grep "^${title}\$" -q <"$READING_LIST_DB"; then
+        echo Already added
+        sleep 1
+      else
+        echo Adding to reading list...
+        echo "$title" >>"$READING_LIST_DB"
       fi
-    else
-      echo "$title" is not in your reading list
-    fi
-    ;;
-  "Remove From Completed")
-    if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
-      if confirm "Are you sure you want to remove '$title' from  completed list?"; then
-        echo removing from reading list...
-        sed -i -E "s/${title}//g" "$READING_LIST_DB"
+      ;;
+    "Add To Completed")
+      if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
+        echo Already added
+        sleep 1
+      else
+        echo Adding to completed list...
+        echo "$title" >>"$COMPLETED_LIST_DB"
       fi
-    else
-      echo "$title" is not in your completed list
-      sleep 1
-    fi
-    ;;
-  "Exit")
-    exit 0
-    ;;
-  "Main Menu")
-    main
-    ;;
+      ;;
+    "Remove From Reading List")
+      if grep "^$title\$" -q <"$READING_LIST_DB"; then
+        if confirm "Are you sure you want to remove '$title' from reading list?"; then
+          echo removing from reading list...
+          sed -i -E "s/${title}//g" "$READING_LIST_DB"
+        fi
+      else
+        echo "$title" is not in your reading list
+      fi
+      ;;
+    "Remove From Completed")
+      if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
+        if confirm "Are you sure you want to remove '$title' from  completed list?"; then
+          echo removing from reading list...
+          sed -i -E "s/${title}//g" "$READING_LIST_DB"
+        fi
+      else
+        echo "$title" is not in your completed list
+        sleep 1
+      fi
+      ;;
+    "Exit")
+      exit 0
+      ;;
+    "Main Menu")
+      main
+      ;;
 
-  *)
-    echo invalid action
-    sleep 1
-    ;;
-  esac
-  clear
+    *)
+      echo invalid action
+      sleep 1
+      ;;
+    esac
+    clear
+  done
   main
 }
 
 # ---- cli ----
+usage() {
+  printf "
+  Usage: %s [options] 
+  Most of the options are directly passed to calibredb
+
+  Options:
+    -s, --search
+      search for a book based on calibredb search syntax
+    -S, --sort-by 
+      sort the books on a specified field
+    -h, --help
+      Show this help message and exit
+
+    Note: 
+      All arguments can be specified in the config file as well.
+      If an argument is specified in both the config file and the command line, the command line argument will be used.
+
+    Some example usages:
+     $CLI_NAME --search tag:chess
+     $CLI_NAME --sort-by size 
+
+" "$CLI_NAME"
+}
+
 case "$1" in
 -h | --help)
   usage
   exit 0
   ;;
 -v | --version)
-  echo "$CLI_VERSION"
+  echo "$CLI_NAME $CLI_VERSION Copyright © 2024 $CLI_AUTHOR projects"
   exit 0
   ;;
 -s | --search)
