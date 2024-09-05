@@ -15,12 +15,19 @@ CLI_VERSION="0.1.0"
 CLI_AUTHOR="BeneX-254"
 use_external_menu=false
 load_config() {
-  # TODO: Make lib-x more configurable
-
+  # TODO: Make lib-x(name subject to change) more configurable
   CONFIG_DIR="$HOME/.config/$CLI_NAME"
-  READING_LIST_DB="$CONFIG_DIR/reading_list"
-  COMPLETED_LIST_DB="$CONFIG_DIR/completed_list"
-  [ -d "$CONFIG_DIR" ] || mkdir -p "$CONFIG_DIR"
+  DBS_DIR="$CONFIG_DIR/DBS"
+
+  READING_LIST_DB="$DBS_DIR/reading_list"
+  PAUSED_LIST_DB="$DBS_DIR/paused_list"
+  PLANING_LIST_DB="$DBS_DIR/planing_list"
+  RE_READING_LIST_DB="$DBS_DIR/re_reading_list"
+  COMPLETED_LIST_DB="$DBS_DIR/completed_list"
+  DROPPED_LIST_DB="$DBS_DIR/dropped_list"
+  DOCS_LIST_DB="$DBS_DIR/docs_list"
+
+  [ -d "$DBS_DIR" ] || mkdir -p "$DBS_DIR"
 
   FZF_DEFAULT_OPTS='
     --color=fg:#d0d0d0,fg+:#d0d0d0,bg:#121212,bg+:#262626
@@ -174,7 +181,7 @@ main() {
   categories=$(calibredb list_categories --csv | tail -n +2 | cut -d , -f 1 | uniq)
   # calibredb list_categories --csv | grep "^$1" | cut -d , -f 2
   # ---- main menu ----
-  action=$(printf "Reading List\nAll\nRandom\n%s\nExit" "$categories" | launcher)
+  action=$(printf "Reading List\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nExit" "$categories" | launcher)
   case "$action" in
   # ---- user lists ----
   # TODO: complete lists
@@ -182,25 +189,30 @@ main() {
     titles="$(cat "$READING_LIST_DB")"
     ;;
   "Dropped")
-    titles="$(cat "$COMPLETED_LIST_DB")"
+    titles="$(cat "$DROPPED_LIST_DB")"
     ;;
   "Paused")
-    titles="$(cat "$COMPLETED_LIST_DB")"
+    titles="$(cat "$PAUSED_LIST_DB")"
     ;;
   "Completed")
     titles="$(cat "$COMPLETED_LIST_DB")"
     ;;
-  "Random")
-    titles="$(echo "$CALIBRE_DATA" | jq -r '.[].title' | shuf -n 30)"
-    ;;
   "Re-reading")
-    titles="$(cat "$COMPLETED_LIST_DB")"
+    titles="$(cat "$RE_READING_LIST_DB")"
     ;;
   "Planing")
-    titles="$(cat "$COMPLETED_LIST_DB")"
+    titles="$(cat "$PLANING_LIST_DB")"
     ;;
+  "Docs")
+    titles="$(cat "$DOCS_LIST_DB")"
+    ;;
+
+  # ---- others ----
   "All")
     titles="$(echo "$CALIBRE_DATA" | jq -r '.[].title')"
+    ;;
+  "Random")
+    titles="$(echo "$CALIBRE_DATA" | jq -r '.[].title' | shuf -n 30)"
     ;;
 
   # ---- calibre search ----
@@ -260,7 +272,7 @@ main() {
 
     # ---- book actions ----
     action=$(
-      printf "Read\nAdd To Reading List\nAdd To Completed\nRemove From Reading List\nRemove From Completed\nMain Menu\nExit" | launcher
+      printf "Read\nAdd To List\nRemove From List\nMain Menu\nExit" | launcher
     )
     case "$action" in
     "Read")
@@ -269,35 +281,84 @@ main() {
       open "$book_path" &
       disown
       ;;
-    "Add To Reading List")
-      if grep "^${title}\$" -q <"$READING_LIST_DB"; then
-        echo Already added
-        sleep 1
-      else
-        echo Adding to reading list...
-        echo "$title" >>"$READING_LIST_DB"
-      fi
-      ;;
-    "Add To Completed")
-      if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
-        echo Already added
-        sleep 1
-      else
-        echo Adding to completed list...
-        echo "$title" >>"$COMPLETED_LIST_DB"
-      fi
-      ;;
-    "Remove From Reading List")
-      if grep "^$title\$" -q <"$READING_LIST_DB"; then
-        if confirm "Are you sure you want to remove '$title' from reading list?"; then
-          echo removing from reading list...
-          sed -i -E "s/${title}//g" "$READING_LIST_DB"
+    "Add To List")
+      list_to_add_to=$(printf "Reading\nPaused\nPlaning\nRe-reading\nDocs\nCompleted\nDropped" | launcher)
+      case "$list_to_add_to" in
+
+      "Reading")
+        if grep "^${title}\$" -q <"$READING_LIST_DB"; then
+          echo Already in Reading List
+          sleep 1
+        else
+          echo Adding to reading list...
+          echo "$title" >>"$READING_LIST_DB"
         fi
-      else
-        echo "$title" is not in your reading list
-      fi
+        ;;
+
+      "Paused")
+        if grep "^${title}\$" -q <"$PAUSED_LIST_DB"; then
+          echo Already in paused List
+          sleep 1
+        else
+          echo Adding to paused list...
+          echo "$title" >>"$PAUSED_LIST_DB"
+        fi
+        ;;
+
+      "Re-reading")
+        if grep "^${title}\$" -q <"$RE_READING_LIST_DB"; then
+          echo Already in re-reading List
+          sleep 1
+        else
+          echo Adding to re-reading list...
+          echo "$title" >>"$RE_READING_LIST_DB"
+        fi
+        ;;
+
+      "Completed")
+        if grep "^${title}\$" -q <"$COMPLETED_LIST_DB"; then
+          echo Already in completed List
+          sleep 1
+        else
+          echo Adding to completed list...
+          echo "$title" >>"$COMPLETED_LIST_DB"
+        fi
+        ;;
+
+      "Docs")
+        if grep "^${title}\$" -q <"$DOCS_LIST_DB"; then
+          echo Already in docs List
+          sleep 1
+        else
+          echo Adding to docs list...
+          echo "$title" >>"$DOCS_LIST_DB"
+        fi
+        ;;
+
+      "Planing")
+        if grep "^${title}\$" -q <"$PLANING_LIST_DB"; then
+          echo Already in planing List
+          sleep 1
+        else
+          echo Adding to planing list...
+          echo "$title" >>"$PLANING_LIST_DB"
+        fi
+        ;;
+      "Dropped")
+        if grep "^${title}\$" -q <"$DROPPED_LIST_DB"; then
+          echo Already in dropped List
+          sleep 1
+        else
+          echo Adding to dropped list...
+          echo "$title" >>"$DROPPED_LIST_DB"
+        fi
+        ;;
+      *)
+        echo unknown option
+        ;;
+      esac
       ;;
-    "Remove From Completed")
+    "Remove From List")
       if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
         if confirm "Are you sure you want to remove '$title' from  completed list?"; then
           echo removing from reading list...
