@@ -393,61 +393,60 @@ main() {
 
 # ---- cli ----
 usage() {
-  printf "
-  Usage: %s [options] 
-  Most of the options are directly passed to calibredb
+  printf "\
+Usage: %s [arguments] [options] 
+Most of the options are directly passed to calibredb
 
-  Options:
-    -s, --search
-      search for a book based on calibredb search syntax
-    -S, --sort-by 
-      sort the books on a specified field
-    -h, --help
-      Show this help message and exit
+Options:
+  -s, --search
+    search for a book based on calibredb search syntax
+  -S, --sort-by 
+    sort the books on a specified field
+  -h, --help
+    Show this help message and exit
 
-    Note: 
-      All arguments can be specified in the config file as well.
-      If an argument is specified in both the config file and the command line, the command line argument will be used.
+arguments:
+  completions
+    generates shell completions for $CLI_NAME
 
-    Some example usages:
-     $CLI_NAME --search tag:chess
-     $CLI_NAME --sort-by size 
+Examples:
+  $CLI_NAME --search tag:chess
+  $CLI_NAME --sort-by size 
 
 " "$CLI_NAME"
+  exit "$1"
 }
 
 GO_DIRECTLY_TO_ALL=false
 case "$1" in
 -h | --help)
-  usage
-  exit 0
+  usage 0
   ;;
 -v | --version)
   echo "$CLI_NAME $CLI_VERSION Copyright © 2024 $CLI_AUTHOR projects"
   exit 0
   ;;
 -s | --search)
-  [ -n "$2" ] || exit 1
+  [ -n "$2" ] || usage 1
   CALIBRE_DATA="$(calibredb list --for-machine --fields=title --search "$2")"
   GO_DIRECTLY_TO_ALL=true
   ;;
 -S | --sort-by)
-  [ -n "$2" ] || exit 1
+  [ -n "$2" ] || usage 1
   CALIBRE_DATA="$(calibredb list --for-machine --fields title --sort-by "$2")"
   GO_DIRECTLY_TO_ALL=true
 
   ;;
 completions)
-  [ -n "$2" ] || exit 1
+  [ -n "$2" ] || usage 1
   case "$2" in
   -f | --fish)
-    # TODO: write fish completions
     echo "\
 # --- functions ---
 function _lib_x_complete_search
-  for complete in (calibredb list_categories --csv) 
-    set comp_key (echo \$complete|cut --delimiter , --fields 1)
-    set comp_val (echo \$complete|cut --delimiter , --fields 2|tr -d '\"')
+  for comp_line in (calibredb list_categories --csv) 
+    set comp_key (echo \$comp_line|cut --delimiter , --fields 1)
+    set comp_val (echo \$comp_line|cut --delimiter , --fields 2|tr -d '\"')
     echo "\$comp_key:\$comp_val"
   end
 end
@@ -457,9 +456,9 @@ complete -c $CLI_NAME --short-option h --long-option help --description 'Print a
 complete -c $CLI_NAME --short-option v --long-option version --description 'Print a short version string and exit'
 
 complete -c $CLI_NAME --short-option S --long-option sort-by --description 'Sort the books by a field' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
-complete -c $CLI_NAME --short-option s --long-option search --description 'search for a book' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments \"(_lib_x_complete_search)\" 
+complete -c $CLI_NAME --short-option s --long-option search --description 'search for a book' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments \"(_lib_x_complete_search)\"
 
-complete -c $CLI_NAME --arguments \"completions\" --no-files 
+complete -c $CLI_NAME --arguments \"completions\" --no-files
 complete -c $CLI_NAME --short-option z --long-option zsh --description 'print zsh completions' --condition '__fish_seen_subcommand_from completions'
 complete -c $CLI_NAME --short-option b --long-option bash --description 'print bash completions' --condition '__fish_seen_subcommand_from completions'
 complete -c $CLI_NAME --short-option f --long-option fish --description 'print fish completions' --condition '__fish_seen_subcommand_from completions'
@@ -474,10 +473,40 @@ complete -c $CLI_NAME --short-option f --long-option fish --description 'print f
     command ...
     ;;
   -h | --help)
-    # TODO: write help message
-    echo generate commandline completions
+    echo "\
+Generate shell completions for $CLI_NAME
+
+Options:
+  --fish
+    print fish completions and exit
+  --bash
+    print bash completions and exit
+  --zsh
+    print zsh completions and exit
+
+Example:
+  $CLI_NAME completions --fish
+  $CLI_NAME completions --bash
+  $CLI_NAME completions --zsh
+    "
     ;;
   *)
+    echo "\
+Generate shell completions for $CLI_NAME
+
+Options:
+  --fish
+    print fish completions and exit
+  --bash
+    print bash completions and exit
+  --zsh
+    print zsh completions and exit
+
+Example:
+  $CLI_NAME completions --fish
+  $CLI_NAME completions --bash
+  $CLI_NAME completions --zsh
+    "
     exit 1
     ;;
   esac
