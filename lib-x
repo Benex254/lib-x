@@ -434,17 +434,26 @@ completions)
   -f | --fish)
     # TODO: write fish completions
     echo "\
-set -l sort_by_commands author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid
-complete -c $CLI_NAME -f 
-complete -c $CLI_NAME -n 'not __fish_seen_subcommand_from completions  && not __fish_contains_opt search s S && not __fish_contains_opt sort-by S' -f -a \"completions\" 
-complete -c $CLI_NAME -n \"__fish_contains_opt sort-by S search s && not __fish_seen_subcommand_from completions && not __fish_seen_subcommand_from \$sort_by_commands\"  -a 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
-complete -c $CLI_NAME -n \"__fish_seen_subcommand_from completions\"  -s z -l zsh -d 'print zsh completions'
-complete -c $CLI_NAME -n \"__fish_seen_subcommand_from completions\"  -s b -l bash -d 'print bash completions'
-complete -c $CLI_NAME -n \"__fish_seen_subcommand_from completions\"  -s f -l fish -d 'print fish completions'
-complete -c $CLI_NAME -n 'not __fish_seen_subcommand_from completions' -s S -l sort-by -d 'Sort the books by a field'
-complete -c $CLI_NAME -n 'not __fish_seen_subcommand_from completions' -s s -l search -d 'search for a book'
-complete -c $CLI_NAME -s h -l help -d 'Print a short help text and exit'
-complete -c $CLI_NAME -n 'not __fish_seen_subcommand_from completions' -l version -s v -d 'Print a short version string and exit'
+# --- functions ---
+function _lib_x_complete_search
+  for complete in (calibredb list_categories --csv) 
+    set comp_key (echo \$complete|cut --delimiter , --fields 1)
+    set comp_val (echo \$complete|cut --delimiter , --fields 2|tr -d '\"')
+    echo "\$comp_key:\$comp_val"
+  end
+end
+
+# --- completions ---
+complete -c $CLI_NAME --short-option h --long-option help --description 'Print a short help text and exit'
+complete -c $CLI_NAME --short-option v --long-option version --description 'Print a short version string and exit'
+
+complete -c $CLI_NAME --short-option S --long-option sort-by --description 'Sort the books by a field' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
+complete -c $CLI_NAME --short-option s --long-option search --description 'search for a book' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments \"(_lib_x_complete_search)\" 
+
+complete -c $CLI_NAME --arguments \"completions\" --no-files 
+complete -c $CLI_NAME --short-option z --long-option zsh --description 'print zsh completions' --condition '__fish_seen_subcommand_from completions'
+complete -c $CLI_NAME --short-option b --long-option bash --description 'print bash completions' --condition '__fish_seen_subcommand_from completions'
+complete -c $CLI_NAME --short-option f --long-option fish --description 'print fish completions' --condition '__fish_seen_subcommand_from completions'
     "
     ;;
   -b | --bash)
