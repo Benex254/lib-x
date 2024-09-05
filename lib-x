@@ -178,10 +178,15 @@ launcher_with_preview() {
 main() {
   load_config
 
-  categories=$(calibredb list_categories --csv | tail -n +2 | cut -d , -f 1 | uniq)
   # calibredb list_categories --csv | grep "^$1" | cut -d , -f 2
   # ---- main menu ----
-  action=$(printf "Reading List\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nExit" "$categories" | launcher)
+  if $GO_DIRECTLY_TO_ALL; then
+    GO_DIRECTLY_TO_ALL=false
+    action="All"
+  else
+    categories=$(calibredb list_categories --csv | tail -n +2 | cut -d , -f 1 | uniq)
+    action=$(printf "Reading List\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nExit" "$categories" | launcher)
+  fi
   case "$action" in
   # ---- user lists ----
   # TODO: complete lists
@@ -212,7 +217,7 @@ main() {
     titles="$(echo "$CALIBRE_DATA" | jq -r '.[].title')"
     ;;
   "Random")
-    titles="$(echo "$CALIBRE_DATA" | jq -r '.[].title' | shuf -n 30)"
+    titles="$(calibredb list --for-machine --fields=title | jq -r '.[].title' | shuf -n 30)"
     ;;
 
   # ---- calibre search ----
@@ -411,6 +416,7 @@ usage() {
 " "$CLI_NAME"
 }
 
+GO_DIRECTLY_TO_ALL=false
 case "$1" in
 -h | --help)
   usage
@@ -422,11 +428,14 @@ case "$1" in
   ;;
 -s | --search)
   [ -n "$2" ] || exit 1
-  CALIBRE_DATA="$(calibredb list --for-machine --fields all --search "$2")"
+  CALIBRE_DATA="$(calibredb list --for-machine --fields=title --search "$2")"
+  GO_DIRECTLY_TO_ALL=true
   ;;
 -S | --sort-by)
   [ -n "$2" ] || exit 1
-  CALIBRE_DATA="$(calibredb list --for-machine --fields all --sort-by "$2")"
+  CALIBRE_DATA="$(calibredb list --for-machine --fields title --sort-by "$2")"
+  GO_DIRECTLY_TO_ALL=true
+
   ;;
 completions)
   [ -n "$2" ] || exit 1
@@ -475,7 +484,7 @@ complete -c $CLI_NAME --short-option f --long-option fish --description 'print f
   exit 0
   ;;
 *)
-  CALIBRE_DATA="$(calibredb list --for-machine --fields all)"
+  CALIBRE_DATA="$(calibredb list --for-machine --fields title)"
   ;;
 esac
 main
