@@ -189,17 +189,16 @@ main() {
 
   # calibredb list_categories --csv | grep "^$1" | cut -d , -f 2
   # ---- main menu ----
-  if $GO_DIRECTLY_TO_ALL; then
-    GO_DIRECTLY_TO_ALL=false
-    action="All"
+  if [[ -n "$GO_DIRECTLY_TO" ]]; then
+    action="$GO_DIRECTLY_TO"
+    GO_DIRECTLY_TO=""
   else
     categories=$(calibredb list_categories --csv | tail -n +2 | cut -d , -f 1 | uniq)
-    action=$(printf "Reading List\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nExit" "$categories" | launcher)
+    action=$(printf "Reading-List\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nExit" "$categories" | launcher)
   fi
   case "$action" in
   # ---- user lists ----
-  # TODO: complete lists
-  "Reading List")
+  "Reading-List")
     titles="$(cat "$READING_LIST_DB")"
     ;;
   "Dropped")
@@ -290,11 +289,12 @@ main() {
     )
     case "$action" in
     "Read")
-      book=$(echo "$CALIBRE_DATA" | jq "map(select(.title == \"$title\")) | .[0]")
+      book=$(calibredb list --for-machine --fields all | jq "map(select(.title == \"$title\")) | .[0]")
       book_path="$(echo "$book" | jq -r '.formats[0]')"
       open "$book_path" &
       disown
       ;;
+    # TODO: create a function to manage list removal and addition
     "Add To List")
       list_to_add_to=$(printf "Reading\nPaused\nPlaning\nRe-reading\nDocs\nCompleted\nDropped" | launcher)
       case "$list_to_add_to" in
@@ -404,6 +404,7 @@ main() {
 usage() {
   printf "\
 Usage: %s [arguments] [options] 
+
 Most of the options are directly passed to calibredb
 
 Options:
@@ -411,8 +412,12 @@ Options:
     search for a book based on calibredb search syntax
   -S, --sort-by 
     sort the books on a specified field
+  -g, --go-directly-to
+    open $CLI_NAME with a sub-menu pre-selected
   -h, --help
     Show this help message and exit
+  -v, --version
+    print the $CLI_NAME version and exit
 
 arguments:
   completions
@@ -421,12 +426,13 @@ arguments:
 Examples:
   $CLI_NAME --search tag:chess
   $CLI_NAME --sort-by size 
+  $CLI_NAME --go-directly-to Reading-List 
 
 " "$CLI_NAME"
   exit "$1"
 }
-
-GO_DIRECTLY_TO_ALL=false
+# TODO: write an option that specifies a direct go to a particular menu
+GO_DIRECTLY_TO=""
 case "$1" in
 -h | --help)
   usage 0
@@ -438,13 +444,17 @@ case "$1" in
 -s | --search)
   [ -n "$2" ] || usage 1
   CALIBRE_DATA="$(calibredb list --for-machine --fields=title --search "$2")"
-  GO_DIRECTLY_TO_ALL=true
+  GO_DIRECTLY_TO="All"
+  ;;
+-g | --go-directly-to)
+  [ -n "$2" ] || usage 1
+  GO_DIRECTLY_TO="$2"
+  CALIBRE_DATA="$(calibredb list --for-machine --fields title)"
   ;;
 -S | --sort-by)
   [ -n "$2" ] || usage 1
   CALIBRE_DATA="$(calibredb list --for-machine --fields title --sort-by "$2")"
-  GO_DIRECTLY_TO_ALL=true
-
+  GO_DIRECTLY_TO="All"
   ;;
 completions)
   [ -n "$2" ] || usage 1
@@ -461,16 +471,17 @@ function _lib_x_complete_search
 end
 
 # --- completions ---
-complete -c $CLI_NAME --short-option h --long-option help --description 'Print a short help text and exit'
-complete -c $CLI_NAME --short-option v --long-option version --description 'Print a short version string and exit'
+complete -c $CLI_NAME --no-files --short-option h --long-option help --description 'Print a short help text and exit'
+complete -c $CLI_NAME --no-files --short-option v --long-option version --description 'Print a short version string and exit' --condition 'not __fish_seen_subcommand_from completions'
 
-complete -c $CLI_NAME --short-option S --long-option sort-by --description 'Sort the books by a field' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
-complete -c $CLI_NAME --short-option s --long-option search --description 'search for a book' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments \"(_lib_x_complete_search)\"
+complete -c $CLI_NAME --no-files --short-option S --long-option sort-by --description 'Sort the books by a field' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
+complete -c $CLI_NAME --no-files --short-option g --long-option go-directly-to --description 'Open $CLI_NAME with a sub-menu pre-selected' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'All Reading-List Paused Planing Re-reading Completed Docs Random authors formats identifiers languages  publisher rating series tags'
+complete -c $CLI_NAME --no-files --short-option s --long-option search --description 'search for a book' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments \"(_lib_x_complete_search)\"
 
-complete -c $CLI_NAME --arguments \"completions\" --no-files
-complete -c $CLI_NAME --short-option z --long-option zsh --description 'print zsh completions' --condition '__fish_seen_subcommand_from completions'
-complete -c $CLI_NAME --short-option b --long-option bash --description 'print bash completions' --condition '__fish_seen_subcommand_from completions'
-complete -c $CLI_NAME --short-option f --long-option fish --description 'print fish completions' --condition '__fish_seen_subcommand_from completions'
+complete -c $CLI_NAME --no-files --arguments \"completions\" --condition 'not __fish_contains_opt search s sort-by S'
+complete -c $CLI_NAME --no-files --short-option z --long-option zsh --description 'print zsh completions' --condition '__fish_seen_subcommand_from completions'
+complete -c $CLI_NAME --no-files --short-option b --long-option bash --description 'print bash completions' --condition '__fish_seen_subcommand_from completions'
+complete -c $CLI_NAME --no-files --short-option f --long-option fish --description 'print fish completions' --condition '__fish_seen_subcommand_from completions'
     "
     ;;
   -b | --bash)
@@ -518,9 +529,11 @@ Example:
     "
     exit 1
     ;;
+
   esac
   exit 0
   ;;
+
 *)
   CALIBRE_DATA="$(calibredb list --for-machine --fields title)"
   ;;
