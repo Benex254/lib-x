@@ -132,26 +132,34 @@ confirm() {
   fi
 }
 launcher() {
-  fzf \
-    --info=hidden \
-    --layout=reverse \
-    --height=100% \
-    --prompt="Select Action: " \
-    --header-first --header="$fzf_header" \
-    --exact --cycle
+  if $use_external_menu; then
+    rofi -sort -matching fuzzy -dmenu -i -width 1500 -p "" -mesg "Select Action" -matching fuzzy -sorting-method fzf
+
+  else
+    fzf \
+      --info=hidden \
+      --layout=reverse \
+      --height=100% \
+      --prompt="Select Action: " \
+      --header-first --header="$fzf_header" \
+      --exact --cycle
+  fi
 
 }
 launcher_with_preview() {
-  fzf \
-    --info=hidden \
-    --layout=reverse \
-    --height=100% \
-    --prompt="Select Book: " \
-    --header-first --header="$fzf_header" \
-    --preview-window=left,35% --bind=right:accept \
-    --expect=shift-left,shift-right --tabstop=1 \
-    --cycle --exact \
-    --ansi --preview="\
+  if $use_external_menu; then
+    rofi -sort -matching fuzzy -dmenu -i -width 1500 -p "" -mesg "Select Action" -matching fuzzy -sorting-method fzf | tr -d "\n"
+  else
+    fzf \
+      --info=hidden \
+      --layout=reverse \
+      --height=100% \
+      --prompt="Select Book: " \
+      --header-first --header="$fzf_header" \
+      --preview-window=left,35% --bind=right:accept \
+      --expect=shift-left,shift-right --tabstop=1 \
+      --cycle --exact \
+      --ansi --preview="\
       if ! [ -z "{}" ] && ! [ {} = \"Exit\" ] && ! [ {} = \"Main Menu\" ];then\
         CALIBRE_DATA=\"\$(calibredb list --for-machine --fields all)\";\
         book=\$(echo \$CALIBRE_DATA |jq -r 'map(select(.title == \"'{}'\")) | .[0]');\
@@ -174,6 +182,7 @@ launcher_with_preview() {
         echo Loading;\
       fi;\
       " | tr -d "\n"
+  fi
 }
 main() {
   load_config
