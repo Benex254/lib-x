@@ -37,6 +37,9 @@ load_config() {
   PREFERRED_SELECTOR="$(grep -s 'PREFERRED_SELECTOR:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$PREFERRED_SELECTOR" ] && PREFERRED_SELECTOR="fzf"
 
+  ENABLE_PREVIEW="$(grep -s 'ENABLE_PREVIEW:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  [ -z "$ENABLE_PREVIEW" ] && ENABLE_PREVIEW=true
+
   ROFI_THEME="$(grep -s 'ROFI_THEME:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   FZF_DEFAULT_OPTS=${LIBX_FZF_OPTS:-'
     --color=fg:#d0d0d0,fg+:#d0d0d0,bg:#121212,bg+:#262626
@@ -450,7 +453,11 @@ main() {
     SHELL="bash"
     export SHELL
     export -f fzf-preview init_pretty_print
-    title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher_with_preview)
+    if [ "$ENABLE_PREVIEW" = true ]; then
+      title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher_with_preview)
+    else
+      title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher | tr -d "\n")
+    fi
     [ "$title" = "Exit" ] && exit 0
     [ "$title" = "Main Menu" ] && break
     clear
@@ -529,6 +536,10 @@ Options:
     don't disown the reading process hence when $CLI_NAME closes the app your using to read your book will also close
   -p <selector>,--preferred-selector <selector>
     set the preferred selector for $CLI_NAME to use
+  --preview
+    enable the preview window
+  --no-preview
+    disable the preview window
   -h, --help
     Show this help message and exit
   -v, --version
@@ -587,6 +598,12 @@ while [ $# -gt 0 ]; do
     PREFERRED_SELECTOR="$2"
     shift
     ;;
+  --preview)
+    ENABLE_PREVIEW=true
+    ;;
+  --no-preview)
+    ENABLE_PREVIEW=false
+    ;;
   -d | --disown-reading-process)
     DISOWN_READING_PROCESS=true
     ;;
@@ -638,6 +655,9 @@ complete -c $CLI_NAME --no-files --short-option p --long-option preferred-select
 complete -c $CLI_NAME --no-files --short-option d --long-option disown-reading-process --description 'disown the reading process' --condition 'not __fish_seen_subcommand_from completions'
 complete -c $CLI_NAME --no-files --short-option D --long-option no-disown-reading-process --description 'dont disown the reading process' --condition 'not __fish_seen_subcommand_from completions'
 complete -c $CLI_NAME --no-files --short-option E --long-option generate-desktop-entry --description 'generate desktop entry info' --condition 'not __fish_seen_subcommand_from completions' 
+
+complete -c $CLI_NAME --no-files --long-option preview --description 'enable preview window' --condition 'not __fish_seen_subcommand_from completions' 
+complete -c $CLI_NAME --no-files --long-option no-preview --description 'disable preview window' --condition 'not __fish_seen_subcommand_from completions' 
 
 complete -c $CLI_NAME --force-files --long-option rofi-theme --description 'the path to your rofi config file' --condition 'not __fish_seen_subcommand_from completions' 
 
@@ -699,7 +719,6 @@ Example:
     esac
     exit 0
     ;;
-
   *)
     CALIBRE_DATA="$(calibredb list --for-machine --fields title)"
     ;;
