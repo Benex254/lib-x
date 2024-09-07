@@ -208,7 +208,6 @@ launcher_with_preview() {
 main() {
   load_config
 
-  # calibredb list_categories --csv | grep "^$1" | cut -d , -f 2
   # ---- main menu ----
   if [[ -n "$GO_DIRECTLY_TO" ]]; then
     action="$GO_DIRECTLY_TO"
@@ -288,6 +287,7 @@ main() {
     ;;
   *)
     echo invalid action
+    sleep 1
     main
     ;;
   esac
@@ -305,118 +305,131 @@ main() {
     clear
 
     # ---- book actions ----
-    action=$(
-      printf "Read\nAdd To List\nRemove From List\nMain Menu\nExit" | launcher
-    )
-    case "$action" in
-    "Read")
-      book=$(calibredb list --for-machine --fields all | jq "map(select(.title == \"$title\")) | .[0]")
-      book_path="$(echo "$book" | jq -r '.formats[0]')"
-      open "$book_path" &
-      disown
-      ;;
-    # TODO: create a function to manage list removal and addition
-    "Add To List")
-      list_to_add_to=$(printf "Reading\nPaused\nPlaning\nRe-reading\nDocs\nCompleted\nDropped" | launcher)
-      case "$list_to_add_to" in
+    while true; do
+      action=$(
+        printf "Read\nAdd To List\nRemove From List\nBack\nMain Menu\nExit" | launcher
+      )
+      case "$action" in
+      "Read")
+        book=$(calibredb list --for-machine --fields all | jq "map(select(.title == \"$title\")) | .[0]")
+        book_path="$(echo "$book" | jq -r '.formats[0]')"
+        open "$book_path" &>/dev/null &
+        # disown
+        [ "${PREFERRED_SELECTOR,,}" = "rofi" ] && wait
+        [ "$LIBX_DETATCH" = true ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && disown
+        [ "$LIBX_DETATCH" = false ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && wait
+        ;;
+      # TODO: create a function to manage list removal and addition
+      "Add To List")
+        list_to_add_to=$(printf "Reading\nPaused\nPlaning\nRe-reading\nDocs\nCompleted\nDropped" | launcher)
+        case "$list_to_add_to" in
 
-      "Reading")
-        if grep "^${title}\$" -q <"$READING_LIST_DB"; then
-          echo Already in Reading List
-          sleep 1
+        "Reading")
+          if grep "^${title}\$" -q <"$READING_LIST_DB"; then
+            echo Already in Reading List
+            sleep 1
+          else
+            echo Adding to reading list...
+            echo "$title" >>"$READING_LIST_DB"
+          fi
+          ;;
+
+        "Paused")
+          if grep "^${title}\$" -q <"$PAUSED_LIST_DB"; then
+            echo Already in paused List
+            sleep 1
+          else
+            echo Adding to paused list...
+            echo "$title" >>"$PAUSED_LIST_DB"
+          fi
+          ;;
+
+        "Re-reading")
+          if grep "^${title}\$" -q <"$RE_READING_LIST_DB"; then
+            echo Already in re-reading List
+            sleep 1
+          else
+            echo Adding to re-reading list...
+            echo "$title" >>"$RE_READING_LIST_DB"
+          fi
+          ;;
+
+        "Completed")
+          if grep "^${title}\$" -q <"$COMPLETED_LIST_DB"; then
+            echo Already in completed List
+            sleep 1
+          else
+            echo Adding to completed list...
+            echo "$title" >>"$COMPLETED_LIST_DB"
+          fi
+          ;;
+
+        "Docs")
+          if grep "^${title}\$" -q <"$DOCS_LIST_DB"; then
+            echo Already in docs List
+            sleep 1
+          else
+            echo Adding to docs list...
+            echo "$title" >>"$DOCS_LIST_DB"
+          fi
+          ;;
+
+        "Planing")
+          if grep "^${title}\$" -q <"$PLANING_LIST_DB"; then
+            echo Already in planing List
+            sleep 1
+          else
+            echo Adding to planing list...
+            echo "$title" >>"$PLANING_LIST_DB"
+          fi
+          ;;
+        "Dropped")
+          if grep "^${title}\$" -q <"$DROPPED_LIST_DB"; then
+            echo Already in dropped List
+            sleep 1
+          else
+            echo Adding to dropped list...
+            echo "$title" >>"$DROPPED_LIST_DB"
+          fi
+          ;;
+        *)
+          echo unknown option
+          ;;
+        esac
+        ;;
+      "Remove From List")
+        if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
+          if confirm "Are you sure you want to remove '$title' from  completed list?"; then
+            echo removing from reading list...
+            sed -i -E "s/${title}//g" "$READING_LIST_DB"
+          fi
         else
-          echo Adding to reading list...
-          echo "$title" >>"$READING_LIST_DB"
+          echo "$title" is not in your completed list
+          sleep 1
         fi
+        ;;
+      "Back")
+        break
+        ;;
+      "Main Menu")
+        break
+        MAIN=true
+        ;;
+      "Exit")
+        exit 0
         ;;
 
-      "Paused")
-        if grep "^${title}\$" -q <"$PAUSED_LIST_DB"; then
-          echo Already in paused List
-          sleep 1
-        else
-          echo Adding to paused list...
-          echo "$title" >>"$PAUSED_LIST_DB"
-        fi
-        ;;
-
-      "Re-reading")
-        if grep "^${title}\$" -q <"$RE_READING_LIST_DB"; then
-          echo Already in re-reading List
-          sleep 1
-        else
-          echo Adding to re-reading list...
-          echo "$title" >>"$RE_READING_LIST_DB"
-        fi
-        ;;
-
-      "Completed")
-        if grep "^${title}\$" -q <"$COMPLETED_LIST_DB"; then
-          echo Already in completed List
-          sleep 1
-        else
-          echo Adding to completed list...
-          echo "$title" >>"$COMPLETED_LIST_DB"
-        fi
-        ;;
-
-      "Docs")
-        if grep "^${title}\$" -q <"$DOCS_LIST_DB"; then
-          echo Already in docs List
-          sleep 1
-        else
-          echo Adding to docs list...
-          echo "$title" >>"$DOCS_LIST_DB"
-        fi
-        ;;
-
-      "Planing")
-        if grep "^${title}\$" -q <"$PLANING_LIST_DB"; then
-          echo Already in planing List
-          sleep 1
-        else
-          echo Adding to planing list...
-          echo "$title" >>"$PLANING_LIST_DB"
-        fi
-        ;;
-      "Dropped")
-        if grep "^${title}\$" -q <"$DROPPED_LIST_DB"; then
-          echo Already in dropped List
-          sleep 1
-        else
-          echo Adding to dropped list...
-          echo "$title" >>"$DROPPED_LIST_DB"
-        fi
-        ;;
       *)
-        echo unknown option
+        echo invalid action
+        sleep 1
         ;;
       esac
-      ;;
-    "Remove From List")
-      if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
-        if confirm "Are you sure you want to remove '$title' from  completed list?"; then
-          echo removing from reading list...
-          sed -i -E "s/${title}//g" "$READING_LIST_DB"
-        fi
-      else
-        echo "$title" is not in your completed list
-        sleep 1
-      fi
-      ;;
-    "Exit")
-      exit 0
-      ;;
-    "Main Menu")
-      main
-      ;;
-
-    *)
-      echo invalid action
-      sleep 1
-      ;;
-    esac
-    clear
+      clear
+    done
+    if $MAIN; then
+      MAIN=false
+      break
+    fi
   done
   main
 }
@@ -452,7 +465,6 @@ Examples:
 " "$CLI_NAME"
   exit "$1"
 }
-# TODO: write an option that specifies a direct go to a particular menu
 GO_DIRECTLY_TO=""
 case "$1" in
 -h | --help)
