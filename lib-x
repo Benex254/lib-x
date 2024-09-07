@@ -487,6 +487,7 @@ usage() {
 Usage: %s [arguments] [options] 
 
 Most of the options are directly passed to calibredb
+Commandline options override the config
 
 Options:
   -s, --search
@@ -497,6 +498,14 @@ Options:
     open $CLI_NAME with a sub-menu pre-selected
   -e, --edit-config
     edit $CLI_NAME config file
+  --rofi-theme <path>
+    set the path to your rofi theme file
+  -d,--disown-reading-process
+    disown the reading process so you can contine reading even if you close $CLI_NAME
+  -D,--no-disown-reading-process
+    don't disown the reading process hence when $CLI_NAME closes the app your using to read your book will also close
+  -p <selector>,--preferred-selector <selector>
+    set the preferred selector for $CLI_NAME to use
   -h, --help
     Show this help message and exit
   -v, --version
@@ -550,7 +559,22 @@ while [ $# -gt 0 ]; do
     GO_DIRECTLY_TO="${GO_DIRECTLY_TO:-All}"
     shift
     ;;
-
+  -p | --preferred-selector)
+    [ -n "$2" ] || usage 1
+    PREFERRED_SELECTOR="$2"
+    shift
+    ;;
+  -d | --disown-reading-process)
+    DISOWN_READING_PROCESS=true
+    ;;
+  -D | --no-disown-reading-process)
+    DISOWN_READING_PROCESS=false
+    ;;
+  --rofi-theme)
+    [ -n "$2" ] || usage 1
+    ROFI_THEME="$2"
+    shift
+    ;;
   completions)
     [ -n "$2" ] || usage 1
     case "$2" in
@@ -569,7 +593,11 @@ end
 complete -c $CLI_NAME --no-files --short-option h --long-option help --description 'Print a short help text and exit'
 complete -c $CLI_NAME --no-files --short-option v --long-option version --description 'Print a short version string and exit' --condition 'not __fish_seen_subcommand_from completions'
 
-complete -c $CLI_NAME --no-files --short-option e --long-option edit-config --description 'Edit $CLI_NAME config file' --condition 'not __fish_seen_subcommand_from completions' 
+complete -c $CLI_NAME --no-files --short-option e --long-option edit-config --description 'Edit $CLI_NAME config file' --condition 'not __fish_seen_subcommand_from completions'
+complete -c $CLI_NAME --no-files --short-option p --long-option preferred-selector --description 'your preferred selector' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'fzf rofi'
+complete -c $CLI_NAME --no-files --short-option d --long-option disown-reading-process --description 'disown the reading process' --condition 'not __fish_seen_subcommand_from completions'
+complete -c $CLI_NAME --no-files --short-option D --long-option no-disown-reading-process --description 'dont disown the reading process' --condition 'not __fish_seen_subcommand_from completions'
+complete -c $CLI_NAME --force-files --long-option rofi-theme --description 'the path to your rofi config file' --condition 'not __fish_seen_subcommand_from completions'
 
 complete -c $CLI_NAME --no-files --short-option S --long-option sort-by --description 'Sort the books by a field' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
 complete -c $CLI_NAME --no-files --short-option g --long-option go-directly-to --description 'Open $CLI_NAME with a sub-menu pre-selected' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'All Reading-List Paused Planing Re-reading Completed Docs Random authors formats identifiers languages  publisher rating series tags'
