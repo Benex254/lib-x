@@ -27,11 +27,15 @@ load_config() {
 
   [ -d "$DBS_DIR" ] || mkdir -p "$DBS_DIR"
 
-  LIBX_DETATCH="$(grep -s 'LIBX_DETATCH:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
-  [ -z "$LIBX_DETATCH" ] && LIBX_DETATCH=true
+  DISOWN_READING_PROCESS="$(grep -s 'DISOWN_READING_PROCESS:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  [ -z "$DISOWN_READING_PROCESS" ] && DISOWN_READING_PROCESS=true
+
+  PREFERRED_EDITOR="$(grep -s 'EDITOR:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  [ -z "$PREFERRED_EDITOR" ] && PREFERRED_EDITOR=${EDITOR:-open}
 
   PREFERRED_SELECTOR="$(grep -s 'PREFERRED_SELECTOR:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$PREFERRED_SELECTOR" ] && PREFERRED_SELECTOR="fzf"
+
   ROFI_THEME="$(grep -s 'ROFI_THEME:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   FZF_DEFAULT_OPTS=${LIBX_FZF_OPTS:-'
     --color=fg:#d0d0d0,fg+:#d0d0d0,bg:#121212,bg+:#262626
@@ -214,7 +218,6 @@ launcher_with_preview() {
 
 }
 main() {
-  load_config
 
   # ---- main menu ----
   if [[ -n "$GO_DIRECTLY_TO" ]]; then
@@ -222,7 +225,7 @@ main() {
     unset GO_DIRECTLY_TO
   else
     categories=$(calibredb list_categories --csv | tail -n +2 | cut -d , -f 1 | uniq)
-    action=$(printf "Reading-List\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nExit" "$categories" | launcher)
+    action=$(printf "Reading-List\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nEdit Config\nExit" "$categories" | launcher)
   fi
   case "$action" in
   # ---- user lists ----
@@ -322,6 +325,10 @@ main() {
     fi
     ;;
   # ---- others ----
+  "Edit Config")
+    $PREFERRED_EDITOR "$CONFIG_DIR/${CLI_NAME}.conf"
+    main
+    ;;
   "Exit")
     exit 0
     ;;
@@ -356,8 +363,8 @@ main() {
         open "$book_path" &>/dev/null &
         # disown
         [ "${PREFERRED_SELECTOR,,}" = "rofi" ] && wait
-        [ "$LIBX_DETATCH" = true ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && disown
-        [ "$LIBX_DETATCH" = false ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && wait
+        [ "$DISOWN_READING_PROCESS" = true ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && disown
+        [ "$DISOWN_READING_PROCESS" = false ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && wait
         ;;
       # TODO: create a function to manage list removal and addition
       "Add To List")
@@ -506,6 +513,7 @@ Examples:
   exit "$1"
 }
 
+load_config
 while [ $# -gt 0 ]; do
   case "$1" in
   -h | --help)
@@ -534,6 +542,7 @@ while [ $# -gt 0 ]; do
     GO_DIRECTLY_TO="${GO_DIRECTLY_TO:-All}"
     shift
     ;;
+
   completions)
     [ -n "$2" ] || usage 1
     case "$2" in
