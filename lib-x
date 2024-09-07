@@ -41,6 +41,9 @@ load_config() {
   ENABLE_PREVIEW="$(grep -s 'ENABLE_PREVIEW:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$ENABLE_PREVIEW" ] && ENABLE_PREVIEW=true
 
+  UPDATE_RECENT="$(grep -s 'UPDATE_RECENT:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  [ -z "$UPDATE_RECENT" ] && UPDATE_RECENT="true"
+
   NO_OF_RECENT="$(grep -s 'NO-OF-RECENT:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$NO_OF_RECENT" ] && NO_OF_RECENT=30
 
@@ -551,9 +554,11 @@ main() {
       case "$action" in
       "Read")
         # update recent list
-        updated_recent_file_contents=$(grep --invert-match -s "^$title\$" <"$RECENT_DB" | grep --extended-regexp "[[:alnum:]]+" | tail -n "$NO_OF_RECENT")
-        echo "$updated_recent_file_contents" >"$RECENT_DB"
-        echo "$title" >>"$RECENT_DB"
+        if [ "$UPDATE_RECENT" = "true" ]; then
+          updated_recent_file_contents=$(grep --invert-match -s "^$title\$" <"$RECENT_DB" | grep --extended-regexp "[[:alnum:]]+" | tail -n "$NO_OF_RECENT")
+          echo "$updated_recent_file_contents" >"$RECENT_DB"
+          echo "$title" >>"$RECENT_DB"
+        fi
 
         # open book
         book=$(calibredb list --for-machine --fields all | jq "map(select(.title == \"$title\")) | .[0]")
@@ -647,11 +652,9 @@ Examples:
   $CLI_NAME --sort-by size 
   $CLI_NAME --go-directly-to Reading-List --sort-by size
   $CLI_NAME --go-directly-to Reading-List 
-
-  $CLI_NAME completions --fish 
-
   $CLI_NAME --no-of-random-books 50 --go-directly-to Random
 
+  $CLI_NAME completions --fish 
 " "$CLI_NAME"
   exit "$1"
 }
@@ -697,6 +700,9 @@ while [ $# -gt 0 ]; do
     [ -n "$2" ] || usage 1
     PREFERRED_SELECTOR="$2"
     shift
+    ;;
+  --private)
+    UPDATE_RECENT="false"
     ;;
   --preview)
     ENABLE_PREVIEW=true
@@ -756,6 +762,7 @@ complete -c $CLI_NAME --no-files --short-option d --long-option disown-reading-p
 complete -c $CLI_NAME --no-files --short-option D --long-option no-disown-reading-process --description 'dont disown the reading process' --condition 'not __fish_seen_subcommand_from completions'
 complete -c $CLI_NAME --no-files --short-option E --long-option generate-desktop-entry --description 'generate desktop entry info' --condition 'not __fish_seen_subcommand_from completions' 
 complete -c $CLI_NAME --no-files --short-option r --long-option no-of-random-books --description 'the number of random books to show' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments \"(seq 100)\" 
+complete -c $CLI_NAME --no-files --short-option P --long-option private --description 'dont update recent' --condition 'not __fish_seen_subcommand_from completions'
 
 complete -c $CLI_NAME --no-files --long-option preview --description 'enable preview window' --condition 'not __fish_seen_subcommand_from completions' 
 complete -c $CLI_NAME --no-files --long-option no-preview --description 'disable preview window' --condition 'not __fish_seen_subcommand_from completions' 
