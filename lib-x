@@ -495,6 +495,8 @@ Options:
     sort the books on a specified field
   -g, --go-directly-to
     open $CLI_NAME with a sub-menu pre-selected
+  -e, --edit-config
+    edit $CLI_NAME config file
   -h, --help
     Show this help message and exit
   -v, --version
@@ -505,8 +507,10 @@ arguments:
     generates shell completions for $CLI_NAME
 
 Examples:
-  $CLI_NAME --search tag:chess
+  $CLI_NAME --search tag:chess --sort-by author
+  $CLI_NAME --search tag:chess 
   $CLI_NAME --sort-by size 
+  $CLI_NAME --go-directly-to Reading-List --sort-by size
   $CLI_NAME --go-directly-to Reading-List 
 
 " "$CLI_NAME"
@@ -521,6 +525,10 @@ while [ $# -gt 0 ]; do
     ;;
   -v | --version)
     echo "$CLI_NAME $CLI_VERSION Copyright © 2024 $CLI_AUTHOR projects"
+    exit 0
+    ;;
+  -e | --edit-config)
+    $PREFERRED_EDITOR "$CONFIG_DIR/${CLI_NAME}.conf" || exit 1
     exit 0
     ;;
   -s | --search)
@@ -560,6 +568,8 @@ end
 # --- completions ---
 complete -c $CLI_NAME --no-files --short-option h --long-option help --description 'Print a short help text and exit'
 complete -c $CLI_NAME --no-files --short-option v --long-option version --description 'Print a short version string and exit' --condition 'not __fish_seen_subcommand_from completions'
+
+complete -c $CLI_NAME --no-files --short-option e --long-option edit-config --description 'Edit $CLI_NAME config file' --condition 'not __fish_seen_subcommand_from completions' 
 
 complete -c $CLI_NAME --no-files --short-option S --long-option sort-by --description 'Sort the books by a field' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
 complete -c $CLI_NAME --no-files --short-option g --long-option go-directly-to --description 'Open $CLI_NAME with a sub-menu pre-selected' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'All Reading-List Paused Planing Re-reading Completed Docs Random authors formats identifiers languages  publisher rating series tags'
