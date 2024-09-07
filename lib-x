@@ -391,7 +391,11 @@ user_lists_manager() {
     ;;
   esac
 }
-
+byebye() {
+  clear
+  echo "Have a good day $USERNAME"
+  exit 0
+}
 main() {
 
   # ---- main menu ----
@@ -509,7 +513,7 @@ main() {
     load_config
     ;;
   "Exit")
-    exit 0
+    byebye
     ;;
   *)
     echo invalid action
@@ -530,8 +534,9 @@ main() {
     else
       title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher | tr -d "\n")
     fi
-    [ "$title" = "Exit" ] && exit 0
+    [ "$title" = "Exit" ] && byebye
     [ "$title" = "Main Menu" ] && break
+    [ -z "$title" ] && echo "Nothing has been selected" && sleep 1 && break
     clear
 
     # ---- book actions ----
@@ -571,7 +576,7 @@ main() {
         break
         ;;
       "Exit")
-        exit 0
+        byebye
         ;;
 
       *)
@@ -590,12 +595,8 @@ main() {
 }
 
 # ---- cli ----
-byebye() {
-  clear
-  echo "Have a good day $USERNAME"
-  exit 0
-}
-trap byebye INT EXIT TERM
+
+trap byebye INT TERM
 
 usage() {
   printf "\
@@ -625,6 +626,8 @@ Options:
     enable the preview window
   --no-preview
     disable the preview window
+  -r <number>, --no-of-random-books <number>
+    the number of random books to show; also makes the cli auto choose Random sub-menu
   -h, --help
     Show this help message and exit
   -v, --version
