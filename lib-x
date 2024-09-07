@@ -156,7 +156,9 @@ confirm() {
     esac
   fi
 }
-
+sanitize_title() {
+  sed 's/\\\/\\\\\\\/g'
+}
 launcher() {
   case "${PREFERRED_SELECTOR,,}" in
   *rofi*)
@@ -200,7 +202,8 @@ launcher_with_preview() {
       --ansi --preview="\
       if ! [ -z "{}" ] && ! [ {} = \"Exit\" ] && ! [ {} = \"Main Menu\" ];then\
         CALIBRE_DATA=\"\$(calibredb list --for-machine --fields all)\";\
-        book=\$(echo \$CALIBRE_DATA |jq -r 'map(select(.title == \"'{}'\")) | .[0]');\
+        title=\"\$(echo {} | sed 's/\\\/\\\\\\\/g;')\";\
+        book=\$(echo \$CALIBRE_DATA |jq -r \"map(select(.title == \\\"\$title\\\")) | .[0]\");\
         book_title=\$(echo  \$book|jq -r '.title');\
         book_authors=\$(echo  \$book|jq -r '.authors');\
         book_tags=\$(echo  \$book|jq -r '.tags|join(\", \")');\
@@ -396,6 +399,7 @@ byebye() {
   echo "Have a good day $USERNAME"
   exit 0
 }
+
 main() {
 
   # ---- main menu ----
@@ -528,7 +532,7 @@ main() {
     # ---- select book ----
     SHELL="bash"
     export SHELL
-    export -f fzf-preview init_pretty_print
+    export -f fzf-preview init_pretty_print sanitize_title
     if [ "$ENABLE_PREVIEW" = true ]; then
       title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher_with_preview)
     else
