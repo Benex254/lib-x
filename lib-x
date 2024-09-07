@@ -30,7 +30,7 @@ load_config() {
   RECENT_DB="$DBS_DIR/recent"
 
   DISOWN_READING_PROCESS="$(grep -s 'DISOWN_READING_PROCESS:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
-  [ -z "$DISOWN_READING_PROCESS" ] && DISOWN_READING_PROCESS=true
+  [ -z "$DISOWN_READING_PROCESS" ] && DISOWN_READING_PROCESS="true"
 
   PREFERRED_EDITOR="$(grep -s 'EDITOR:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$PREFERRED_EDITOR" ] && PREFERRED_EDITOR=${EDITOR:-open}
@@ -39,7 +39,7 @@ load_config() {
   [ -z "$PREFERRED_SELECTOR" ] && PREFERRED_SELECTOR="fzf"
 
   ENABLE_PREVIEW="$(grep -s 'ENABLE_PREVIEW:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
-  [ -z "$ENABLE_PREVIEW" ] && ENABLE_PREVIEW=true
+  [ -z "$ENABLE_PREVIEW" ] && ENABLE_PREVIEW="true"
 
   UPDATE_RECENT="$(grep -s 'UPDATE_RECENT:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$UPDATE_RECENT" ] && UPDATE_RECENT="true"
@@ -536,7 +536,7 @@ main() {
     SHELL="bash"
     export SHELL
     export -f fzf-preview init_pretty_print sanitize_title
-    if [ "$ENABLE_PREVIEW" = true ]; then
+    if [ "$ENABLE_PREVIEW" = "true" ]; then
       title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher_with_preview)
     else
       title=$(printf "%s\nExit\nMain Menu" "$titles" | launcher | tr -d "\n")
@@ -566,8 +566,8 @@ main() {
         open "$book_path" &>/dev/null &
         # disown
         [ "${PREFERRED_SELECTOR,,}" = "rofi" ] && wait
-        [ "$DISOWN_READING_PROCESS" = true ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && disown
-        [ "$DISOWN_READING_PROCESS" = false ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && wait
+        [ "$DISOWN_READING_PROCESS" = "true" ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && disown
+        [ "$DISOWN_READING_PROCESS" = "false" ] && [ "${PREFERRED_SELECTOR,,}" = "fzf" ] && wait
         ;;
       "Add To List")
         list_to_add_to=$(printf "Reading\nPaused\nPlaning\nRe-reading\nDocs\nCompleted\nDropped" | launcher)
@@ -705,16 +705,16 @@ while [ $# -gt 0 ]; do
     UPDATE_RECENT="false"
     ;;
   --preview)
-    ENABLE_PREVIEW=true
+    ENABLE_PREVIEW="true"
     ;;
   --no-preview)
-    ENABLE_PREVIEW=false
+    ENABLE_PREVIEW="false"
     ;;
   -d | --disown-reading-process)
-    DISOWN_READING_PROCESS=true
+    DISOWN_READING_PROCESS="true"
     ;;
   -D | --no-disown-reading-process)
-    DISOWN_READING_PROCESS=false
+    DISOWN_READING_PROCESS="false"
     ;;
   --rofi-theme)
     [ -n "$2" ] || usage 1
