@@ -27,6 +27,7 @@ load_config() {
   COMPLETED_LIST_DB="$DBS_DIR/completed_list"
   DROPPED_LIST_DB="$DBS_DIR/dropped_list"
   DOCS_LIST_DB="$DBS_DIR/docs_list"
+  RECENT_DB="$DBS_DIR/recent"
 
   DISOWN_READING_PROCESS="$(grep -s 'DISOWN_READING_PROCESS:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$DISOWN_READING_PROCESS" ] && DISOWN_READING_PROCESS=true
@@ -39,6 +40,9 @@ load_config() {
 
   ENABLE_PREVIEW="$(grep -s 'ENABLE_PREVIEW:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$ENABLE_PREVIEW" ] && ENABLE_PREVIEW=true
+
+  NO_OF_RECENT="$(grep -s 'NO-OF-RECENT:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  [ -z "$NO_OF_RECENT" ] && NO_OF_RECENT=30
 
   ROFI_THEME="$(grep -s 'ROFI_THEME:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   FZF_DEFAULT_OPTS=${LIBX_FZF_OPTS:-'
@@ -392,12 +396,15 @@ main() {
     unset GO_DIRECTLY_TO
   else
     categories=$(calibredb list_categories --csv | tail -n +2 | cut -d , -f 1 | uniq)
-    action=$(printf "Reading-List\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nEdit Config\nExit" "$categories" | launcher)
+    action=$(printf "Reading-List\nRecent\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nEdit Config\nExit" "$categories" | launcher)
   fi
   case "$action" in
   # ---- user lists ----
   "Reading-List")
     titles="$(cat "$READING_LIST_DB")"
+    ;;
+  "Recent")
+    titles="$(tac "$RECENT_DB")"
     ;;
   "Dropped")
     titles="$(cat "$DROPPED_LIST_DB")"
@@ -530,6 +537,12 @@ main() {
       )
       case "$action" in
       "Read")
+        # update recent list
+        updated_recent_file_contents=$(grep --invert-match -s "^$title\$" <"$RECENT_DB" | tail -n "$NO_OF_RECENT" | grep --extended-regexp "[[:alnum:]]+")
+        echo "$updated_recent_file_contents" >"$RECENT_DB"
+        echo "$title" >>"$RECENT_DB"
+
+        # open book
         book=$(calibredb list --for-machine --fields all | jq "map(select(.title == \"$title\")) | .[0]")
         book_path="$(echo "$book" | jq -r '.formats[0]')"
         open "$book_path" &>/dev/null &
