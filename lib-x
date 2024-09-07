@@ -219,7 +219,7 @@ main() {
   # ---- main menu ----
   if [[ -n "$GO_DIRECTLY_TO" ]]; then
     action="$GO_DIRECTLY_TO"
-    GO_DIRECTLY_TO=""
+    unset GO_DIRECTLY_TO
   else
     categories=$(calibredb list_categories --csv | tail -n +2 | cut -d , -f 1 | uniq)
     action=$(printf "Reading-List\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nExit" "$categories" | launcher)
@@ -259,35 +259,67 @@ main() {
   # ---- calibre search ----
   "formats")
     series=$(calibredb list_categories --csv | grep "^formats" | cut -d , -f 2 | launcher | tr -d '"')
-    titles=$(calibredb list --search "format:$series" --for-machine --fields=title | jq '.[].title' -r)
+    if [ -n "$SORT_BY" ]; then
+      titles=$(calibredb list --search "format:$series" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
+    else
+      titles=$(calibredb list --search "format:$series" --for-machine --fields=title | jq '.[].title' -r)
+    fi
     ;;
   "series")
     series=$(calibredb list_categories --csv | grep "^series" | cut -d , -f 2 | launcher | tr -d '"')
-    titles=$(calibredb list --search "series:$series" --for-machine --fields=title | jq '.[].title' -r)
+    if [ -n "$SORT_BY" ]; then
+      titles=$(calibredb list --search "series:$series" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
+    else
+      titles=$(calibredb list --search "series:$series" --for-machine --fields=title | jq '.[].title' -r)
+    fi
     ;;
   "languages")
     language=$(calibredb list_categories --csv | grep "^languages" | cut -d , -f 2 | launcher | tr -d '"')
-    titles=$(calibredb list --search "language:$language" --for-machine --fields=title | jq '.[].title' -r)
+    if [ -n "$SORT_BY" ]; then
+      titles=$(calibredb list --search "language:$language" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
+    else
+      titles=$(calibredb list --search "language:$language" --for-machine --fields=title | jq '.[].title' -r)
+    fi
     ;;
   "tags")
     tag=$(calibredb list_categories --csv | grep "^tags" | cut -d , -f 2 | launcher | tr -d '"')
-    titles=$(calibredb list --search "tag:$tag" --for-machine --fields=title | jq '.[].title' -r)
+    if [ -n "$SORT_BY" ]; then
+      titles=$(calibredb list --search "tag:$tag" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
+    else
+      titles=$(calibredb list --search "tag:$tag" --for-machine --fields=title | jq '.[].title' -r)
+    fi
     ;;
   "rating")
     rating=$(calibredb list_categories --csv | grep "^rating" | cut -d , -f 2 | launcher | tr -d '"')
-    titles=$(calibredb list --search "rating:$rating" --for-machine --fields=title | jq '.[].title' -r)
+    if [ -n "$SORT_BY" ]; then
+      titles=$(calibredb list --search "rating:$rating" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
+    else
+      titles=$(calibredb list --search "rating:$rating" --for-machine --fields=title | jq '.[].title' -r)
+    fi
     ;;
   "publisher")
     publisher=$(calibredb list_categories --csv | grep "^publisher" | cut -d , -f 2 | launcher | tr -d '"')
-    titles=$(calibredb list --search "publisher:$publisher" --for-machine --fields=title | jq '.[].title' -r)
+    if [ -n "$SORT_BY" ]; then
+      titles=$(calibredb list --search "publisher:$publisher" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
+    else
+      titles=$(calibredb list --search "publisher:$publisher" --for-machine --fields=title | jq '.[].title' -r)
+    fi
     ;;
   "identifiers")
     identifier=$(calibredb list_categories --csv | grep "^identifiers" | cut -d , -f 2 | launcher | tr -d '"')
-    titles=$(calibredb list --search "identifier:$identifier" --for-machine --fields=title | jq '.[].title' -r)
+    if [ -n "$SORT_BY" ]; then
+      titles=$(calibredb list --search "identifier:$identifier" --sort "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
+    else
+      titles=$(calibredb list --search "identifier:$identifier" --for-machine --fields=title | jq '.[].title' -r)
+    fi
     ;;
   "authors")
     series=$(calibredb list_categories --csv | grep "^authors" | cut -d , -f 2 | launcher | tr -d '"')
-    titles=$(calibredb list --search "author:$series" --for-machine --fields=title | jq '.[].title' -r)
+    if [ -n "$SORT_BY" ]; then
+      titles=$(calibredb list --search "author:$series" --sort "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
+    else
+      titles=$(calibredb list --search "author:$series" --for-machine --fields=title | jq '.[].title' -r)
+    fi
     ;;
   # ---- others ----
   "Exit")
@@ -473,35 +505,40 @@ Examples:
 " "$CLI_NAME"
   exit "$1"
 }
-GO_DIRECTLY_TO=""
-case "$1" in
--h | --help)
-  usage 0
-  ;;
--v | --version)
-  echo "$CLI_NAME $CLI_VERSION Copyright © 2024 $CLI_AUTHOR projects"
-  exit 0
-  ;;
--s | --search)
-  [ -n "$2" ] || usage 1
-  CALIBRE_DATA="$(calibredb list --for-machine --fields=title --search "$2")"
-  GO_DIRECTLY_TO="All"
-  ;;
--g | --go-directly-to)
-  [ -n "$2" ] || usage 1
-  GO_DIRECTLY_TO="$2"
-  CALIBRE_DATA="$(calibredb list --for-machine --fields title)"
-  ;;
--S | --sort-by)
-  [ -n "$2" ] || usage 1
-  CALIBRE_DATA="$(calibredb list --for-machine --fields title --sort-by "$2")"
-  GO_DIRECTLY_TO="All"
-  ;;
-completions)
-  [ -n "$2" ] || usage 1
-  case "$2" in
-  -f | --fish)
-    echo "\
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+  -h | --help)
+    usage 0
+    ;;
+  -v | --version)
+    echo "$CLI_NAME $CLI_VERSION Copyright © 2024 $CLI_AUTHOR projects"
+    exit 0
+    ;;
+  -s | --search)
+    [ -n "$2" ] || usage 1
+    SEARCH="$2"
+    CALIBRE_DATA="$(calibredb list --for-machine --fields=title --search "$SEARCH")"
+    GO_DIRECTLY_TO="${GO_DIRECTLY_TO:-All}"
+    shift
+    ;;
+  -g | --go-directly-to)
+    [ -n "$2" ] || usage 1
+    GO_DIRECTLY_TO="$2"
+    shift
+    ;;
+  -S | --sort-by)
+    [ -n "$2" ] || usage 1
+    SORT_BY="$2"
+    CALIBRE_DATA="$(calibredb list --for-machine --fields title --sort-by "$SORT_BY")"
+    GO_DIRECTLY_TO="${GO_DIRECTLY_TO:-All}"
+    shift
+    ;;
+  completions)
+    [ -n "$2" ] || usage 1
+    case "$2" in
+    -f | --fish)
+      echo "\
 # --- functions ---
 function _lib_x_complete_search
   for comp_line in (calibredb list_categories --csv) 
@@ -524,17 +561,17 @@ complete -c $CLI_NAME --no-files --short-option z --long-option zsh --descriptio
 complete -c $CLI_NAME --no-files --short-option b --long-option bash --description 'print bash completions' --condition '__fish_seen_subcommand_from completions'
 complete -c $CLI_NAME --no-files --short-option f --long-option fish --description 'print fish completions' --condition '__fish_seen_subcommand_from completions'
     "
-    ;;
-  -b | --bash)
-    # TODO: write bash completions
-    command ...
-    ;;
-  -z | --zsh)
-    # TODO: write zsh completions
-    command ...
-    ;;
-  -h | --help)
-    echo "\
+      ;;
+    -b | --bash)
+      # TODO: write bash completions
+      command ...
+      ;;
+    -z | --zsh)
+      # TODO: write zsh completions
+      command ...
+      ;;
+    -h | --help)
+      echo "\
 Generate shell completions for $CLI_NAME
 
 Options:
@@ -550,33 +587,37 @@ Example:
   $CLI_NAME completions --bash
   $CLI_NAME completions --zsh
     "
+      ;;
+    *)
+      echo "\
+Generate shell completions for $CLI_NAME
+
+Options:
+  --fish
+    print fish completions and exit
+  --bash
+    print bash completions and exit
+  --zsh
+    print zsh completions and exit
+
+Example:
+  $CLI_NAME completions --fish
+  $CLI_NAME completions --bash
+  $CLI_NAME completions --zsh
+    "
+      exit 1
+      ;;
+
+    esac
+    exit 0
     ;;
+
   *)
-    echo "\
-Generate shell completions for $CLI_NAME
-
-Options:
-  --fish
-    print fish completions and exit
-  --bash
-    print bash completions and exit
-  --zsh
-    print zsh completions and exit
-
-Example:
-  $CLI_NAME completions --fish
-  $CLI_NAME completions --bash
-  $CLI_NAME completions --zsh
-    "
-    exit 1
+    CALIBRE_DATA="$(calibredb list --for-machine --fields title)"
     ;;
-
   esac
-  exit 0
-  ;;
+  shift
+done
+CALIBRE_DATA="${CALIBRE_DATA:-$(calibredb list --for-machine --fields title)}"
 
-*)
-  CALIBRE_DATA="$(calibredb list --for-machine --fields title)"
-  ;;
-esac
 main
