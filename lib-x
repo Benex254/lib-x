@@ -673,7 +673,6 @@ while [ $# -gt 0 ]; do
   -s | --search)
     [ -n "$2" ] || usage 1
     SEARCH="$2"
-    CALIBRE_DATA="$(calibredb list --for-machine --fields=title --search "$SEARCH")"
     GO_DIRECTLY_TO="${GO_DIRECTLY_TO:-All}"
     shift
     ;;
@@ -685,7 +684,6 @@ while [ $# -gt 0 ]; do
   -S | --sort-by)
     [ -n "$2" ] || usage 1
     SORT_BY="$2"
-    CALIBRE_DATA="$(calibredb list --for-machine --fields title --sort-by "$SORT_BY")"
     GO_DIRECTLY_TO="${GO_DIRECTLY_TO:-All}"
     shift
     ;;
@@ -765,7 +763,7 @@ complete -c $CLI_NAME --no-files --long-option no-preview --description 'disable
 complete -c $CLI_NAME --force-files --long-option rofi-theme --description 'the path to your rofi config file' --condition 'not __fish_seen_subcommand_from completions' 
 
 complete -c $CLI_NAME --no-files --short-option S --long-option sort-by --description 'Sort the books by a field' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
-complete -c $CLI_NAME --no-files --short-option g --long-option go-directly-to --description 'Open $CLI_NAME with a sub-menu pre-selected' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'All Reading-List Paused Planing Re-reading Completed Docs Random authors formats identifiers languages  publisher rating series tags'
+complete -c $CLI_NAME --no-files --short-option g --long-option go-directly-to --description 'Open $CLI_NAME with a sub-menu pre-selected' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'All Reading-List Paused Planing Re-reading Completed Docs Random authors formats identifiers languages  publisher rating series tags Recent'
 complete -c $CLI_NAME --no-files --short-option s --long-option search --description 'search for a book' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments \"(_lib_x_complete_search)\"
 
 complete -c $CLI_NAME --no-files --short-option z --long-option zsh --description 'print zsh completions' --condition '__fish_seen_subcommand_from completions'
@@ -828,6 +826,13 @@ Example:
   esac
   shift
 done
+if [ -n "$SORT_BY" ] && [ -n "$SEARCH" ]; then
+  CALIBRE_DATA="$(calibredb list --for-machine --fields title --search "$SEARCH" --sort-by "$SORT_BY")"
+elif [ -n "$SORT_BY" ]; then
+  CALIBRE_DATA="$(calibredb list --for-machine --fields title --sort-by "$SORT_BY")"
+elif [ -n "$SEARCH" ]; then
+  CALIBRE_DATA="$(calibredb list --for-machine --fields title --search "$SEARCH")"
+fi
 CALIBRE_DATA="${CALIBRE_DATA:-$(calibredb list --for-machine --fields title)}"
 
 main
