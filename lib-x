@@ -72,10 +72,6 @@ init_pretty_print() {
 }
 
 fzf-preview() {
-  if [[ $# -ne 1 ]]; then
-    >&2 echo "usage: $0 FILENAME"
-    exit 1
-  fi
 
   file=${1/#\~\//$HOME/}
   type=$(file --dereference --mime -- "$file")
@@ -237,13 +233,13 @@ user_lists_manager() {
       if grep "^$title\$" -q <"$READING_LIST_DB"; then
         if confirm "Are you sure you want to remove '$title' from  $1 List?"; then
           echo "removing from $1 List..."
-          sed -i -E "s/${title}//g" "$READING_LIST_DB"
+          updated_list="$(grep --invert-match "^$title\$" <"$READING_LIST_DB")"
+          echo "$updated_list" | grep --extended-regexp '[[:alnum:]]+' >"$READING_LIST_DB"
         fi
       else
         echo "$title is not in your $1 List"
         sleep 1
       fi
-
     fi
     ;;
 
@@ -255,6 +251,17 @@ user_lists_manager() {
       else
         echo Adding to paused list...
         echo "$title" >>"$PAUSED_LIST_DB"
+      fi
+    elif [ "$2" = "remove" ]; then
+      if grep "^$title\$" -q <"$PAUSED_LIST_DB"; then
+        if confirm "Are you sure you want to remove '$title' from  $1 List?"; then
+          echo "removing from $1 List..."
+          updated_list="$(grep --invert-match "^$title\$" <"$PAUSED_LIST_DB")"
+          echo "$updated_list" | grep --extended-regexp '[[:alnum:]]+' >"$PAUSED_LIST_DB"
+        fi
+      else
+        echo "$title is not in your $1 List"
+        sleep 1
       fi
     fi
     ;;
@@ -268,9 +275,19 @@ user_lists_manager() {
         echo Adding to re-reading list...
         echo "$title" >>"$RE_READING_LIST_DB"
       fi
+    elif [ "$2" = "remove" ]; then
+      if grep "^$title\$" -q <"$RE_READING_LIST_DB"; then
+        if confirm "Are you sure you want to remove '$title' from  $1 List?"; then
+          echo "removing from $1 List..."
+          updated_list="$(grep --invert-match "^$title\$" <"$RE_READING_LIST_DB")"
+          echo "$updated_list" | grep --extended-regexp '[[:alnum:]]+' >"$RE_READING_LIST_DB"
+        fi
+      else
+        echo "$title is not in your $1 List"
+        sleep 1
+      fi
     fi
     ;;
-
   "Completed")
     if [ "$2" = "add" ]; then
       if grep "^${title}\$" -s -q <"$COMPLETED_LIST_DB"; then
@@ -279,6 +296,17 @@ user_lists_manager() {
       else
         echo Adding to completed list...
         echo "$title" >>"$COMPLETED_LIST_DB"
+      fi
+    elif [ "$2" = "remove" ]; then
+      if grep "^$title\$" -q <"$COMPLETED_LIST_DB"; then
+        if confirm "Are you sure you want to remove '$title' from  $1 List?"; then
+          echo "removing from $1 List..."
+          updated_list="$(grep --invert-match "^$title\$" <"$COMPLETED_LIST_DB")"
+          echo "$updated_list" | grep --extended-regexp '[[:alnum:]]+' >"$COMPLETED_LIST_DB"
+        fi
+      else
+        echo "$title is not in your $1 List"
+        sleep 1
       fi
     fi
     ;;
@@ -292,6 +320,17 @@ user_lists_manager() {
         echo Adding to docs list...
         echo "$title" >>"$DOCS_LIST_DB"
       fi
+    elif [ "$2" = "remove" ]; then
+      if grep "^$title\$" -q <"$DOCS_LIST_DB"; then
+        if confirm "Are you sure you want to remove '$title' from  $1 List?"; then
+          echo "removing from $1 List..."
+          updated_list="$(grep --invert-match "^$title\$" <"$DOCS_LIST_DB")"
+          echo "$updated_list" | grep --extended-regexp '[[:alnum:]]+' >"$DOCS_LIST_DB"
+        fi
+      else
+        echo "$title is not in your $1 List"
+        sleep 1
+      fi
     fi
     ;;
 
@@ -304,6 +343,17 @@ user_lists_manager() {
         echo Adding to planing list...
         echo "$title" >>"$PLANING_LIST_DB"
       fi
+    elif [ "$2" = "remove" ]; then
+      if grep "^$title\$" -q <"$PLANING_LIST_DB"; then
+        if confirm "Are you sure you want to remove '$title' from  $1 List?"; then
+          echo "removing from $1 List..."
+          updated_list="$(grep --invert-match "^$title\$" <"$PLANING_LIST_DB")"
+          echo "$updated_list" | grep --extended-regexp '[[:alnum:]]+' >"$PLANING_LIST_DB"
+        fi
+      else
+        echo "$title is not in your $1 List"
+        sleep 1
+      fi
     fi
     ;;
   "Dropped")
@@ -314,6 +364,17 @@ user_lists_manager() {
       else
         echo Adding to dropped list...
         echo "$title" >>"$DROPPED_LIST_DB"
+      fi
+    elif [ "$2" = "remove" ]; then
+      if grep "^$title\$" -q <"$DROPPED_LIST_DB"; then
+        if confirm "Are you sure you want to remove '$title' from  $1 List?"; then
+          echo "removing from $1 List..."
+          updated_list="$(grep --invert-match "^$title\$" <"$DROPPED_LIST_DB")"
+          echo "$updated_list" | grep --extended-regexp '[[:alnum:]]+' >"$DROPPED_LIST_DB"
+        fi
+      else
+        echo "$title is not in your $1 List"
+        sleep 1
       fi
     fi
     ;;
@@ -510,19 +571,21 @@ main() {
   done
   main
 }
+
+# ---- cli ----
 byebye() {
   clear
   echo "Have a good day $USERNAME"
   exit 0
 }
 trap byebye INT EXIT TERM
-# ---- cli ----
+
 usage() {
   printf "\
 Usage: %s [arguments] [options] 
 
-Most of the options are directly passed to calibredb
 Commandline options override the config
+Some of the options are directly passed to calibredb
 
 Options:
   -s, --search
@@ -629,7 +692,7 @@ Name=$CLI_NAME
 Type=Application
 version=$CLI_VERSION
 Path=$HOME
-Comment=Use calibre in a new way
+Comment=Read and manage your calibre books from the terminal
 Terminal=false
 Icon=$CLI_DIR/assets/logo.png
 Exec=$0 --preferred-selector rofi
