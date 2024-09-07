@@ -45,6 +45,7 @@ load_config() {
 
 }
 
+# notify-send -t $NOTIFICATION_DURATION -i "$notification_img" "Playing: $TITLE";
 init_pretty_print() {
   if [ -t 1 ] && [ "$PRETTY_PRINT" = "y" ] || true; then
     # Check if stdout is a terminal
@@ -133,8 +134,15 @@ confirm() {
   if command -v "gum" &>/dev/null; then
     gum confirm --default "$1"
   else
-    # TODO: Write alternative
-    command ...
+    read -P --local -r 'Are you sure you want to proceed?[y/N]: ' CONFIRMED
+    case "$CONFIRMED" in
+    y | Y)
+      true
+      ;;
+    *)
+      false
+      ;;
+    esac
   fi
 }
 
