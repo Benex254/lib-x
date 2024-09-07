@@ -13,9 +13,7 @@ fzf_header='
 CLI_NAME="${0##*/}"
 CLI_VERSION="0.1.0"
 CLI_AUTHOR="BeneX-254"
-use_external_menu=false
 load_config() {
-  # TODO: Make lib-x(name subject to change) more configurable
   CONFIG_DIR="$HOME/.config/$CLI_NAME"
   DBS_DIR="$CONFIG_DIR/DBS"
 
@@ -29,14 +27,20 @@ load_config() {
 
   [ -d "$DBS_DIR" ] || mkdir -p "$DBS_DIR"
 
-  FZF_DEFAULT_OPTS='
+  LIBX_DETATCH="$(grep -s 'LIBX_DETATCH:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  [ -z "$LIBX_DETATCH" ] && LIBX_DETATCH=true
+
+  PREFERRED_SELECTOR="$(grep -s 'PREFERRED_SELECTOR:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  [ -z "$PREFERRED_SELECTOR" ] && PREFERRED_SELECTOR="fzf"
+  ROFI_THEME="$(grep -s 'ROFI_THEME:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  FZF_DEFAULT_OPTS=${LIBX_FZF_OPTS:-'
     --color=fg:#d0d0d0,fg+:#d0d0d0,bg:#121212,bg+:#262626
     --color=hl:#5f87af,hl+:#5fd7ff,info:#afaf87,marker:#87ff00
     --color=prompt:#d7005f,spinner:#af5fff,pointer:#af5fff,header:#87afaf
     --color=border:#262626,label:#aeaeae,query:#d9d9d9
     --border="rounded" --border-label="" --preview-window="border-rounded" --prompt="> "
     --marker=">" --pointer="◆" --separator="─" --scrollbar="│"
-  '
+  '}
   export FZF_DEFAULT_OPTS
 
 }
@@ -57,6 +61,7 @@ init_pretty_print() {
   fi
 
 }
+
 fzf-preview() {
   if [[ $# -ne 1 ]]; then
     >&2 echo "usage: $0 FILENAME"
@@ -123,6 +128,7 @@ fzf-preview() {
     file "$file"
   fi
 }
+
 confirm() {
   if command -v "gum" &>/dev/null; then
     gum confirm --default "$1"
@@ -131,11 +137,17 @@ confirm() {
     command ...
   fi
 }
-launcher() {
-  if $use_external_menu; then
-    rofi -sort -matching fuzzy -dmenu -i -width 1500 -p "" -mesg "Select Action" -matching fuzzy -sorting-method fzf
 
-  else
+launcher() {
+  case "${PREFERRED_SELECTOR,,}" in
+  *rofi*)
+    if [ -z "$ROFI_THEME" ]; then
+      rofi -sort -matching fuzzy -dmenu -i -width 1500 -p "" -mesg "Select Action" -matching fuzzy -sorting-method fzf
+    else
+      rofi -no-config -theme "$ROFI_THEME" -sort -matching fuzzy -dmenu -i -width 1500 -p "" -mesg "Select Action" -matching fuzzy -sorting-method fzf
+    fi
+    ;;
+  *)
     fzf \
       --info=hidden \
       --layout=reverse \
@@ -143,13 +155,20 @@ launcher() {
       --prompt="Select Action: " \
       --header-first --header="$fzf_header" \
       --exact --cycle
-  fi
+    ;;
+  esac
 
 }
 launcher_with_preview() {
-  if $use_external_menu; then
-    rofi -sort -matching fuzzy -dmenu -i -width 1500 -p "" -mesg "Select Action" -matching fuzzy -sorting-method fzf | tr -d "\n"
-  else
+  case "${PREFERRED_SELECTOR,,}" in
+  *rofi*)
+    if [ -z "$ROFI_THEME" ]; then
+      rofi -sort -matching fuzzy -dmenu -i -width 1500 -p "" -mesg "Select Action" -matching fuzzy -sorting-method fzf
+    else
+      rofi -no-config -theme "$ROFI_THEME" -sort -matching fuzzy -dmenu -i -p "" -mesg "Select Action" -matching fuzzy -sorting-method fzf
+    fi
+    ;;
+  *)
     fzf \
       --info=hidden \
       --layout=reverse \
@@ -182,7 +201,9 @@ launcher_with_preview() {
         echo Loading;\
       fi;\
       " | tr -d "\n"
-  fi
+    ;;
+  esac
+
 }
 main() {
   load_config
