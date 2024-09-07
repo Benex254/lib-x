@@ -510,7 +510,12 @@ main() {
   done
   main
 }
-
+byebye() {
+  clear
+  echo "Have a good day $USERNAME"
+  exit 0
+}
+trap byebye INT EXIT TERM
 # ---- cli ----
 usage() {
   printf "\
