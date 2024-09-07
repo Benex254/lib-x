@@ -529,7 +529,7 @@ Options:
   -e, --edit-config
     edit $CLI_NAME config file
   --rofi-theme <path>
-    set the path to your rofi theme file
+    set the path to your rofi config file
   -d,--disown-reading-process
     disown the reading process so you can contine reading even if you close $CLI_NAME
   -D,--no-disown-reading-process
@@ -555,6 +555,8 @@ Examples:
   $CLI_NAME --sort-by size 
   $CLI_NAME --go-directly-to Reading-List --sort-by size
   $CLI_NAME --go-directly-to Reading-List 
+
+  $CLI_NAME completions --fish 
 
 " "$CLI_NAME"
   exit "$1"
@@ -720,7 +722,7 @@ Example:
     exit 0
     ;;
   *)
-    CALIBRE_DATA="$(calibredb list --for-machine --fields title)"
+    usage 1
     ;;
   esac
   shift
