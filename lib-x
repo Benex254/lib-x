@@ -551,7 +551,7 @@ main() {
       case "$action" in
       "Read")
         # update recent list
-        updated_recent_file_contents=$(grep --invert-match -s "^$title\$" <"$RECENT_DB" | tail -n "$NO_OF_RECENT" | grep --extended-regexp "[[:alnum:]]+")
+        updated_recent_file_contents=$(grep --invert-match -s "^$title\$" <"$RECENT_DB" | grep --extended-regexp "[[:alnum:]]+" | tail -n "$NO_OF_RECENT")
         echo "$updated_recent_file_contents" >"$RECENT_DB"
         echo "$title" >>"$RECENT_DB"
 
