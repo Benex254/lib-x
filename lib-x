@@ -44,6 +44,9 @@ load_config() {
   NO_OF_RECENT="$(grep -s 'NO-OF-RECENT:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$NO_OF_RECENT" ] && NO_OF_RECENT=30
 
+  NO_OF_RANDOM_BOOKS="$(grep -s 'NO_OF_RANDOM_BOOKS:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  [ -z "$NO_OF_RANDOM_BOOKS" ] && NO_OF_RANDOM_BOOKS=30
+
   ROFI_THEME="$(grep -s 'ROFI_THEME:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   FZF_DEFAULT_OPTS=${LIBX_FZF_OPTS:-'
     --color=fg:#d0d0d0,fg+:#d0d0d0,bg:#121212,bg+:#262626
@@ -262,6 +265,7 @@ user_lists_manager() {
           echo "removing from $1 List..."
           updated_list="$(grep --invert-match "^$title\$" <"$PAUSED_LIST_DB")"
           echo "$updated_list" | grep --extended-regexp '[[:alnum:]]+' >"$PAUSED_LIST_DB"
+
         fi
       else
         echo "$title is not in your $1 List"
@@ -430,7 +434,7 @@ main() {
     titles="$(echo "$CALIBRE_DATA" | jq -r '.[].title')"
     ;;
   "Random")
-    titles="$(calibredb list --for-machine --fields=title | jq -r '.[].title' | shuf -n 30)"
+    titles="$(calibredb list --for-machine --fields=title | jq -r '.[].title' | shuf -n "$NO_OF_RANDOM_BOOKS")"
     ;;
 
   # ---- calibre search ----
@@ -639,6 +643,8 @@ Examples:
 
   $CLI_NAME completions --fish 
 
+  $CLI_NAME --no-of-random-books 50 --go-directly-to Random
+
 " "$CLI_NAME"
   exit "$1"
 }
@@ -674,6 +680,12 @@ while [ $# -gt 0 ]; do
     SORT_BY="$2"
     CALIBRE_DATA="$(calibredb list --for-machine --fields title --sort-by "$SORT_BY")"
     GO_DIRECTLY_TO="${GO_DIRECTLY_TO:-All}"
+    shift
+    ;;
+  -r | --no-of-random-books)
+    [ -n "$2" ] || usage 1
+    NO_OF_RANDOM_BOOKS="$2"
+    GO_DIRECTLY_TO="${GO_DIRECTLY_TO:-Random}"
     shift
     ;;
   -p | --preferred-selector)
@@ -738,6 +750,7 @@ complete -c $CLI_NAME --no-files --short-option p --long-option preferred-select
 complete -c $CLI_NAME --no-files --short-option d --long-option disown-reading-process --description 'disown the reading process' --condition 'not __fish_seen_subcommand_from completions'
 complete -c $CLI_NAME --no-files --short-option D --long-option no-disown-reading-process --description 'dont disown the reading process' --condition 'not __fish_seen_subcommand_from completions'
 complete -c $CLI_NAME --no-files --short-option E --long-option generate-desktop-entry --description 'generate desktop entry info' --condition 'not __fish_seen_subcommand_from completions' 
+complete -c $CLI_NAME --no-files --short-option r --long-option no-of-random-books --description 'the number of random books to show' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments \"(seq 100)\" 
 
 complete -c $CLI_NAME --no-files --long-option preview --description 'enable preview window' --condition 'not __fish_seen_subcommand_from completions' 
 complete -c $CLI_NAME --no-files --long-option no-preview --description 'disable preview window' --condition 'not __fish_seen_subcommand_from completions' 
