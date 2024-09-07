@@ -2,7 +2,7 @@
 #A script written by BeneX-254 in September 4, 2024 under GNU GENERAL PUBLIC LICENSE
 
 # TODO: come up with a better name
-fzf_header='
+FZF_HEADER='
 ██╗░░░░░██╗██████╗░░░░░░░██╗░░██╗
 ██║░░░░░██║██╔══██╗░░░░░░╚██╗██╔╝
 ██║░░░░░██║██████╦╝█████╗░╚███╔╝░
@@ -13,10 +13,13 @@ fzf_header='
 CLI_NAME="${0##*/}"
 CLI_VERSION="0.1.0"
 CLI_AUTHOR="BeneX-254"
-load_config() {
-  CONFIG_DIR="$HOME/.config/$CLI_NAME"
-  DBS_DIR="$CONFIG_DIR/DBS"
+CLI_DIR="$(dirname "$(realpath "$0")")"
 
+CONFIG_DIR="$HOME/.config/$CLI_NAME"
+DBS_DIR="$CONFIG_DIR/DBS"
+[ -d "$DBS_DIR" ] || mkdir -p "$DBS_DIR"
+
+load_config() {
   READING_LIST_DB="$DBS_DIR/reading_list"
   PAUSED_LIST_DB="$DBS_DIR/paused_list"
   PLANING_LIST_DB="$DBS_DIR/planing_list"
@@ -24,8 +27,6 @@ load_config() {
   COMPLETED_LIST_DB="$DBS_DIR/completed_list"
   DROPPED_LIST_DB="$DBS_DIR/dropped_list"
   DOCS_LIST_DB="$DBS_DIR/docs_list"
-
-  [ -d "$DBS_DIR" ] || mkdir -p "$DBS_DIR"
 
   DISOWN_READING_PROCESS="$(grep -s 'DISOWN_READING_PROCESS:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$DISOWN_READING_PROCESS" ] && DISOWN_READING_PROCESS=true
@@ -165,7 +166,7 @@ launcher() {
       --layout=reverse \
       --height=100% \
       --prompt="Select Action: " \
-      --header-first --header="$fzf_header" \
+      --header-first --header="$FZF_HEADER" \
       --exact --cycle
     ;;
   esac
@@ -186,7 +187,7 @@ launcher_with_preview() {
       --layout=reverse \
       --height=100% \
       --prompt="Select Book: " \
-      --header-first --header="$fzf_header" \
+      --header-first --header="$FZF_HEADER" \
       --preview-window=left,35% --bind=right:accept \
       --expect=shift-left,shift-right --tabstop=1 \
       --cycle --exact \
@@ -575,6 +576,21 @@ while [ $# -gt 0 ]; do
     ROFI_THEME="$2"
     shift
     ;;
+  -E | --generate-desktop-entry)
+    echo "
+[Desktop Entry]
+Name=$CLI_NAME
+Type=Application
+version=$CLI_VERSION
+Path=$HOME
+Comment=Use calibre in a new way
+Terminal=false
+Icon=$CLI_DIR/assets/logo.png
+Exec=$0 --preferred-selector rofi
+Categories=Education
+    "
+    exit 0
+    ;;
   completions)
     [ -n "$2" ] || usage 1
     case "$2" in
@@ -597,7 +613,9 @@ complete -c $CLI_NAME --no-files --short-option e --long-option edit-config --de
 complete -c $CLI_NAME --no-files --short-option p --long-option preferred-selector --description 'your preferred selector' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'fzf rofi'
 complete -c $CLI_NAME --no-files --short-option d --long-option disown-reading-process --description 'disown the reading process' --condition 'not __fish_seen_subcommand_from completions'
 complete -c $CLI_NAME --no-files --short-option D --long-option no-disown-reading-process --description 'dont disown the reading process' --condition 'not __fish_seen_subcommand_from completions'
-complete -c $CLI_NAME --force-files --long-option rofi-theme --description 'the path to your rofi config file' --condition 'not __fish_seen_subcommand_from completions'
+complete -c $CLI_NAME --no-files --short-option E --long-option generate-desktop-entry --description 'generate desktop entry info' --condition 'not __fish_seen_subcommand_from completions' 
+
+complete -c $CLI_NAME --force-files --long-option rofi-theme --description 'the path to your rofi config file' --condition 'not __fish_seen_subcommand_from completions' 
 
 complete -c $CLI_NAME --no-files --short-option S --long-option sort-by --description 'Sort the books by a field' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'author_sort authors comments cover formats identifiers isbn languages last_modified pubdate publisher rating series series_index size tags template timestamp title uuid'
 complete -c $CLI_NAME --no-files --short-option g --long-option go-directly-to --description 'Open $CLI_NAME with a sub-menu pre-selected' --condition 'not __fish_seen_subcommand_from completions' --exclusive --arguments 'All Reading-List Paused Planing Re-reading Completed Docs Random authors formats identifiers languages  publisher rating series tags'
