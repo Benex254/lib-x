@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 #A script written by BeneX-254 in September 4, 2024 under GNU GENERAL PUBLIC LICENSE
 
-# TODO: come up with a better name
-FZF_HEADER='
+CLI_HEADER='
 ██╗░░░░░██╗██████╗░░░░░░░██╗░░██╗
 ██║░░░░░██║██╔══██╗░░░░░░╚██╗██╔╝
 ██║░░░░░██║██████╦╝█████╗░╚███╔╝░
@@ -10,47 +9,105 @@ FZF_HEADER='
 ███████╗██║██████╦╝░░░░░░██╔╝╚██╗
 ╚══════╝╚═╝╚═════╝░░░░░░░╚═╝░░╚═╝
 '
+
 CLI_NAME="${0##*/}"
 CLI_VERSION="0.1.0"
 CLI_AUTHOR="BeneX-254"
+
 CLI_DIR="$(dirname "$(realpath "$0")")"
+CLI_CONFIG_DIR="$HOME/.config/$CLI_NAME"
+CLI_CONFIG_FILE="$CLI_CONFIG_DIR/${CLI_NAME}.conf"
+CLI_DBS_DIR="$CLI_CONFIG_DIR/DBS"
 
-CONFIG_DIR="$HOME/.config/$CLI_NAME"
-DBS_DIR="$CONFIG_DIR/DBS"
-[ -d "$DBS_DIR" ] || mkdir -p "$DBS_DIR"
+[ -d "$CLI_DBS_DIR" ] || mkdir -p "$CLI_DBS_DIR"
 
+print_config() {
+  echo "\
+#
+#    ██╗░░░░░██╗██████╗░░░░░░░██╗░░██╗  ░█████╗░░█████╗░███╗░░██╗███████╗██╗░██████╗░
+#    ██║░░░░░██║██╔══██╗░░░░░░╚██╗██╔╝  ██╔══██╗██╔══██╗████╗░██║██╔════╝██║██╔════╝░
+#    ██║░░░░░██║██████╦╝█████╗░╚███╔╝░  ██║░░╚═╝██║░░██║██╔██╗██║█████╗░░██║██║░░██╗░
+#    ██║░░░░░██║██╔══██╗╚════╝░██╔██╗░  ██║░░██╗██║░░██║██║╚████║██╔══╝░░██║██║░░╚██╗
+#    ███████╗██║██████╦╝░░░░░░██╔╝╚██╗  ╚█████╔╝╚█████╔╝██║░╚███║██║░░░░░██║╚██████╔╝
+#    ╚══════╝╚═╝╚═════╝░░░░░░░╚═╝░░╚═╝  ░╚════╝░░╚════╝░╚═╝░░╚══╝╚═╝░░░░░╚═╝░╚═════╝░
+#
+
+# whether to show colors when printing ouput
+PRETTY_PRINT: $PRETTY_PRINT
+
+# your preferred editor for editing your config
+EDITOR: $PREFERRED_EDITOR
+
+# your preferred selector for the tui [fzf/rofi]
+PREFERRED_SELECTOR: $PREFERRED_SELECTOR
+
+# the quality of the video when streaming with a player other than mpv
+VIDEO_QUALITY: $VIDEO_QUALITY
+
+# whether to show previews [true/false]
+# its cool so enable it
+ENABLE_PREVIEW: $ENABLE_PREVIEW
+
+# whether to run mpv as a background process and prevent it from closing even if you terminate the program or terminal session
+DISOWN_STREAMING_PROCESS: $DISOWN_STREAMING_PROCESS
+
+# whether to update the recent list kept locally [true/false]
+UPDATE_RECENT: $UPDATE_RECENT
+
+# the number of recent videos to keep
+NO_OF_RECENT: $NO_OF_RECENT
+
+# the player to use for streaming [mpv/vlc]
+PLAYER: $PLAYER
+
+# the browser to use to extract cookies from
+# this is used to by yt-dlp to access content that would require login
+PREFERRED_BROWSER: ${PREFERRED_BROWSER[1]}
+
+# the number of results to get from yt-dlp
+NO_OF_SEARCH_RESULTS: $NO_OF_SEARCH_RESULTS
+
+# the duration notifications stay on the screen
+NOTIFICATION_DURATION: $NOTIFICATION_DURATION
+
+# where your downloads will be stored
+DOWNLOAD_DIRECTORY: $DOWNLOAD_DIRECTORY
+"
+}
 load_config() {
-  READING_LIST_DB="$DBS_DIR/reading_list"
-  PAUSED_LIST_DB="$DBS_DIR/paused_list"
-  PLANING_LIST_DB="$DBS_DIR/planing_list"
-  RE_READING_LIST_DB="$DBS_DIR/re_reading_list"
-  COMPLETED_LIST_DB="$DBS_DIR/completed_list"
-  DROPPED_LIST_DB="$DBS_DIR/dropped_list"
-  DOCS_LIST_DB="$DBS_DIR/docs_list"
-  RECENT_DB="$DBS_DIR/recent"
+  READING_LIST_DB="$CLI_DBS_DIR/reading_list"
+  PAUSED_LIST_DB="$CLI_DBS_DIR/paused_list"
+  PLANING_LIST_DB="$CLI_DBS_DIR/planing_list"
+  RE_READING_LIST_DB="$CLI_DBS_DIR/re_reading_list"
+  COMPLETED_LIST_DB="$CLI_DBS_DIR/completed_list"
+  DROPPED_LIST_DB="$CLI_DBS_DIR/dropped_list"
+  DOCS_LIST_DB="$CLI_DBS_DIR/docs_list"
+  RECENT_DB="$CLI_DBS_DIR/recent"
 
-  DISOWN_READING_PROCESS="$(grep -s 'DISOWN_READING_PROCESS:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  DISOWN_READING_PROCESS="$(grep -s 'DISOWN_READING_PROCESS:' "$CLI_CONFIG_FILE" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$DISOWN_READING_PROCESS" ] && DISOWN_READING_PROCESS="true"
 
-  PREFERRED_EDITOR="$(grep -s 'EDITOR:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  PREFERRED_EDITOR="$(grep -s 'EDITOR:' "$CLI_CONFIG_FILE" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$PREFERRED_EDITOR" ] && PREFERRED_EDITOR=${EDITOR:-open}
 
-  PREFERRED_SELECTOR="$(grep -s 'PREFERRED_SELECTOR:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  PREFERRED_SELECTOR="$(grep -s 'PREFERRED_SELECTOR:' "$CLI_CONFIG_FILE" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$PREFERRED_SELECTOR" ] && PREFERRED_SELECTOR="fzf"
 
-  ENABLE_PREVIEW="$(grep -s 'ENABLE_PREVIEW:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  ENABLE_PREVIEW="$(grep -s 'ENABLE_PREVIEW:' "$CLI_CONFIG_FILE" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$ENABLE_PREVIEW" ] && ENABLE_PREVIEW="true"
 
-  UPDATE_RECENT="$(grep -s 'UPDATE_RECENT:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  UPDATE_RECENT="$(grep -s 'UPDATE_RECENT:' "$CLI_CONFIG_FILE" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$UPDATE_RECENT" ] && UPDATE_RECENT="true"
 
-  NO_OF_RECENT="$(grep -s 'NO-OF-RECENT:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  NO_OF_RECENT="$(grep -s 'NO-OF-RECENT:' "$CLI_CONFIG_FILE" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$NO_OF_RECENT" ] && NO_OF_RECENT=30
 
-  NO_OF_RANDOM_BOOKS="$(grep -s 'NO_OF_RANDOM_BOOKS:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  NO_OF_RANDOM_BOOKS="$(grep -s 'NO_OF_RANDOM_BOOKS:' "$CLI_CONFIG_FILE" | sed 's/^#.*//g;s/^.*: //')"
   [ -z "$NO_OF_RANDOM_BOOKS" ] && NO_OF_RANDOM_BOOKS=30
 
-  ROFI_THEME="$(grep -s 'ROFI_THEME:' "$CONFIG_DIR/${CLI_NAME}.conf" | sed 's/^#.*//g;s/^.*: //')"
+  ROFI_THEME="$(grep -s 'ROFI_THEME:' "$CLI_CONFIG_FILE" | sed 's/^#.*//g;s/^.*: //')"
+
+  ! [ -f "$CLI_CONFIG_FILE" ] && print_config >"$CLI_CONFIG_FILE"
   FZF_DEFAULT_OPTS=${LIBX_FZF_OPTS:-'
     --color=fg:#d0d0d0,fg+:#d0d0d0,bg:#121212,bg+:#262626
     --color=hl:#5f87af,hl+:#5fd7ff,info:#afaf87,marker:#87ff00
@@ -177,8 +234,8 @@ launcher() {
       --layout=reverse \
       --height=100% \
       --prompt="Select Action: " \
-      --header-first --header="$FZF_HEADER" \
-      --exact --cycle
+      --header-first --header="$CLI_HEADER" \
+      --exact --cycle --ansi
     ;;
   esac
 
@@ -198,33 +255,44 @@ launcher_with_preview() {
       --layout=reverse \
       --height=100% \
       --prompt="Select Book: " \
-      --header-first --header="$FZF_HEADER" \
+      --header-first --header="$CLI_HEADER" \
       --preview-window=left,35%,wrap --bind=right:accept \
       --expect=shift-left,shift-right --tabstop=1 \
       --cycle --exact \
-      --ansi --preview="\
-      if ! [ -z "{}" ] && ! [ {} = \"Exit\" ] && ! [ {} = \"Main Menu\" ];then\
-        CALIBRE_DATA=\"\$(calibredb list --for-machine --fields all)\";\
-        title=\"\$(echo {} | sed 's/\\\/\\\\\\\/g;')\";\
-        book=\$(echo \$CALIBRE_DATA |jq -r \"map(select(.title == \\\"\$title\\\")) | .[0]\");\
-        book_title=\$(echo  \$book|jq -r '.title');\
-        book_authors=\$(echo  \$book|jq -r '.authors');\
-        book_tags=\$(echo  \$book|jq -r '.tags|join(\", \")');\
-        book_cover=\$(echo  \$book|jq -r '.cover');\
-        book_comments=\$(echo  \$book|jq -r '.comments');\
-        book_langs=\$(echo  \$book|jq -r '.languages[]');\
-        \
-        init_pretty_print;\
-        fzf-preview  \"\$book_cover\";
-        echo \${MAGENTA}\${BOLD}Title:\${RESET} \$book_title;\
-        echo \${MAGENTA}\${BOLD}Authors:\${RESET} \$book_authors;\
-        echo -n \${MAGENTA}\${BOLD}Comments:\${RESET};\
-        echo  \$book_comments|glow;\
-        echo \${MAGENTA}\${BOLD}Tags:\${RESET} \$book_tags;\
-        echo \${MAGENTA}\${BOLD}Languages:\${RESET} \$book_langs;\
-      else\
-        echo Loading;\
-      fi;\
+      --ansi --preview="
+if ! [ -z {} ] && ! [ {} = \"Exit\" ] && ! [ {} = \"Main Menu\" ];then
+  if [ -f \"$CLI_CONFIG_DIR/calibredb.json\" ];then
+    CALIBRE_DATA=\"\$(cat \"$CLI_CONFIG_DIR/calibredb.json\")\"
+  else
+    CALIBRE_DATA=\"\$(calibredb list --for-machine --fields all)\";
+  fi
+  title=\"\$(echo {} | sed 's/\\\/\\\\\\\/g;')\";
+  book=\$(echo \$CALIBRE_DATA |jq -r \"map(select(.title == \\\"\$title\\\")) | .[0]\")
+  book_title=\$(echo  \$book|jq -r '.title');
+  book_authors=\$(echo  \$book|jq -r '.authors');
+  book_tags=\$(echo  \$book|jq -r '.tags|join(\", \")');
+  book_cover=\$(echo  \$book|jq -r '.cover');
+  book_comments=\$(echo  \$book|jq -r '.comments');
+  book_langs=\$(echo  \$book|jq -r '.languages[]');
+  
+  init_pretty_print;
+  fzf-preview  \"\$book_cover\";
+
+  ll=1
+  while [ \$ll -le \$FZF_PREVIEW_COLUMNS ];do echo -n -e \"─\" ;(( ll++ ));done;
+  echo \${MAGENTA}\${BOLD}Title:\${RESET} \$book_title;
+  echo \${MAGENTA}\${BOLD}Authors:\${RESET} \$book_authors;
+  echo \${MAGENTA}\${BOLD}Tags:\${RESET} \$book_tags;
+  echo \${MAGENTA}\${BOLD}Languages:\${RESET} \$book_langs;
+
+  ll=1
+  while [ \$ll -le \$FZF_PREVIEW_COLUMNS ];do echo -n -e \"─\" ;(( ll++ ));done;
+  if command -v glow &>/dev/null;then echo -e \$book_comments|glow;
+  else echo -e \"\$book_comments\"
+  fi
+else\
+  echo Loading;\
+fi;\
       " | tr -d "\n"
     ;;
   esac
@@ -402,8 +470,13 @@ byebye() {
   echo "Have a good day $USERNAME"
   exit 0
 }
+dump_calibre_data() {
 
+  calibredb list --for-machine --fields all >"$CLI_CONFIG_DIR/calibredb.json"
+}
 main() {
+  dump_calibre_data
+  init_pretty_print
 
   # ---- main menu ----
   if [[ -n "$GO_DIRECTLY_TO" ]]; then
@@ -411,7 +484,21 @@ main() {
     unset GO_DIRECTLY_TO
   else
     categories=$(calibredb list_categories --csv | tail -n +2 | cut -d , -f 1 | uniq)
-    action=$(printf "Reading-List\nRecent\nPaused\nRe-reading\nPlaning\nCompleted\nDocs\nAll\nRandom\n%s\nEdit Config\nExit" "$categories" | launcher)
+    _categories=$(for category in $categories; do echo "${CYAN}${RESET}  ${category^}"; done)
+    action=$(printf "\
+${CYAN}${RESET}  Reading-List
+${CYAN}${RESET}  Recent
+${CYAN}${RESET}  Paused
+${CYAN}${RESET}  Re-reading
+${CYAN}${RESET}  Planing
+${CYAN}${RESET}  Completed
+${CYAN}󰈙${RESET}  Docs
+${CYAN}${RESET}  Random
+${CYAN}${RESET}  All
+%s
+${CYAN}${RESET}  Dropped
+${CYAN}${RESET}  Edit Config
+${RED}󰈆${RESET}  Exit" "$_categories" | launcher | sed 's/^.  //g')
   fi
   case "$action" in
   # ---- user lists ----
@@ -449,7 +536,7 @@ main() {
     ;;
 
   # ---- calibre search ----
-  "formats")
+  "Formats")
     series=$(calibredb list_categories --csv | grep "^formats" | cut -d , -f 2 | launcher | tr -d '"')
     if [ -n "$SORT_BY" ]; then
       titles=$(calibredb list --search "format:$series" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
@@ -457,7 +544,7 @@ main() {
       titles=$(calibredb list --search "format:$series" --for-machine --fields=title | jq '.[].title' -r)
     fi
     ;;
-  "series")
+  "Series")
     series=$(calibredb list_categories --csv | grep "^series" | cut -d , -f 2 | launcher | tr -d '"')
     if [ -n "$SORT_BY" ]; then
       titles=$(calibredb list --search "series:$series" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
@@ -465,7 +552,7 @@ main() {
       titles=$(calibredb list --search "series:$series" --for-machine --fields=title | jq '.[].title' -r)
     fi
     ;;
-  "languages")
+  "Languages")
     language=$(calibredb list_categories --csv | grep "^languages" | cut -d , -f 2 | launcher | tr -d '"')
     if [ -n "$SORT_BY" ]; then
       titles=$(calibredb list --search "language:$language" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
@@ -473,7 +560,7 @@ main() {
       titles=$(calibredb list --search "language:$language" --for-machine --fields=title | jq '.[].title' -r)
     fi
     ;;
-  "tags")
+  "Tags")
     tag=$(calibredb list_categories --csv | grep "^tags" | cut -d , -f 2 | launcher | tr -d '"')
     if [ -n "$SORT_BY" ]; then
       titles=$(calibredb list --search "tag:$tag" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
@@ -481,7 +568,7 @@ main() {
       titles=$(calibredb list --search "tag:$tag" --for-machine --fields=title | jq '.[].title' -r)
     fi
     ;;
-  "rating")
+  "Rating")
     rating=$(calibredb list_categories --csv | grep "^rating" | cut -d , -f 2 | launcher | tr -d '"')
     if [ -n "$SORT_BY" ]; then
       titles=$(calibredb list --search "rating:$rating" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
@@ -489,7 +576,7 @@ main() {
       titles=$(calibredb list --search "rating:$rating" --for-machine --fields=title | jq '.[].title' -r)
     fi
     ;;
-  "publisher")
+  "Publisher")
     publisher=$(calibredb list_categories --csv | grep "^publisher" | cut -d , -f 2 | launcher | tr -d '"')
     if [ -n "$SORT_BY" ]; then
       titles=$(calibredb list --search "publisher:$publisher" --sort-by "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
@@ -497,7 +584,7 @@ main() {
       titles=$(calibredb list --search "publisher:$publisher" --for-machine --fields=title | jq '.[].title' -r)
     fi
     ;;
-  "identifiers")
+  "Identifiers")
     identifier=$(calibredb list_categories --csv | grep "^identifiers" | cut -d , -f 2 | launcher | tr -d '"')
     if [ -n "$SORT_BY" ]; then
       titles=$(calibredb list --search "identifier:$identifier" --sort "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
@@ -505,7 +592,7 @@ main() {
       titles=$(calibredb list --search "identifier:$identifier" --for-machine --fields=title | jq '.[].title' -r)
     fi
     ;;
-  "authors")
+  "Authors")
     series=$(calibredb list_categories --csv | grep "^authors" | cut -d , -f 2 | launcher | tr -d '"')
     if [ -n "$SORT_BY" ]; then
       titles=$(calibredb list --search "author:$series" --sort "$SORT_BY" --for-machine --fields=title | jq '.[].title' -r)
@@ -515,7 +602,7 @@ main() {
     ;;
   # ---- others ----
   "Edit Config")
-    $PREFERRED_EDITOR "$CONFIG_DIR/${CLI_NAME}.conf"
+    $PREFERRED_EDITOR "$CLI_CONFIG_FILE"
     main
     load_config
     ;;
@@ -549,7 +636,13 @@ main() {
     # ---- book actions ----
     while true; do
       action=$(
-        printf "Read\nAdd To List\nRemove From List\nBack\nMain Menu\nExit" | launcher
+        printf "\
+${CYAN}${RESET}  Read
+${CYAN}󰐒${RESET}  Add To List
+${CYAN}󰐐${RESET}  Remove From List
+${CYAN}󰌍${RESET}  Back
+${CYAN}${RESET}  Main Menu
+${RED}󰈆${RESET}  Exit" | launcher | sed 's/^.  //g'
       )
       case "$action" in
       "Read")
@@ -670,7 +763,7 @@ while [ $# -gt 0 ]; do
     exit 0
     ;;
   -e | --edit-config)
-    $PREFERRED_EDITOR "$CONFIG_DIR/${CLI_NAME}.conf" || exit 1
+    $PREFERRED_EDITOR "$CLI_CONFIG_FILE" || exit 1
     exit 0
     ;;
   -s | --search)
@@ -744,9 +837,7 @@ Categories=Education
 # --- functions ---
 function _lib_x_complete_search
   for comp_line in (calibredb list_categories --csv) 
-    set comp_key (echo \$comp_line|cut --delimiter , --fields 1)
-    set comp_val (echo \$comp_line|cut --delimiter , --fields 2|tr -d '\"')
-    echo "\$comp_key:\$comp_val"
+    echo (echo \$comp_line|cut --delimiter , --fields 1):(echo \$comp_line|cut --delimiter , --fields 2|tr -d '\"')
   end
 end
 
