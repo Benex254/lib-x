@@ -267,13 +267,13 @@ if ! [ -z {} ] && ! [ {} = \"Exit\" ] && ! [ {} = \"Main Menu\" ];then
     CALIBRE_DATA=\"\$(calibredb list --for-machine --fields all)\";
   fi
   title=\"\$(echo {} | sed 's/\\\/\\\\\\\/g;')\";
-  book=\$(echo \$CALIBRE_DATA |jq -r \"map(select(.title == \\\"\$title\\\")) | .[0]\")
-  book_title=\$(echo  \$book|jq -r '.title');
-  book_authors=\$(echo  \$book|jq -r '.authors');
-  book_tags=\$(echo  \$book|jq -r '.tags|join(\", \")');
-  book_cover=\$(echo  \$book|jq -r '.cover');
-  book_comments=\$(echo  \$book|jq -r '.comments');
-  book_langs=\$(echo  \$book|jq -r '.languages[]');
+  book=\$(echo \"\$CALIBRE_DATA\" |jq -r \"map(select(.title == \\\"\$title\\\")) | .[0]\")
+  book_title=\$(echo  \"\$book\"|jq -r '.title');
+  book_authors=\$(echo  \"\$book\"|jq -r '.authors');
+  book_tags=\$(echo  \"\$book\"|jq -r '.tags|join(\", \")');
+  book_cover=\$(echo  \"\$book\"|jq -r '.cover');
+  book_comments=\$(echo  \"\$book\"|jq -r '.comments');
+  book_langs=\$(echo  \"\$book\"|jq -r '.languages[]');
   
   init_pretty_print;
   fzf-preview  \"\$book_cover\";
