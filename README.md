@@ -17,7 +17,7 @@ A TUI wrapper over the calibredb
 
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Benex254/lib-x/refs/heads/master/lib-x -o ~/.local/bin/lib-x && chmod +x ~/.local/bin/lib-x
+curl -sL https://raw.githubusercontent.com/Benexl/lib-x/refs/heads/master/lib-x -o ~/.local/bin/lib-x && chmod +x ~/.local/bin/lib-x
 ```
 
 # Dependencies
